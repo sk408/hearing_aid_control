@@ -15,7 +15,8 @@ import type { Operation } from "./domain/model";
 const OPTIONAL_SERVICES: BluetoothServiceUUID[] = [
   "56772eaf-2153-4f74-acf3-4368d99fbf5a",
   "8b82105d-0f0c-40bb-b422-3770fa72a864",
-  "1959a468-3234-4c18-9e78-8daf8d9dbf61",
+  "e0262760-08c2-11e1-9073-0e8ac72ea010",
+  "0000fdf0-0000-1000-8000-00805f9b34fb",
   "9a04f079-9840-4286-ab92-e65be0885f95",
   "0000180a-0000-1000-8000-00805f9b34fb",
   "0000180f-0000-1000-8000-00805f9b34fb"
@@ -23,6 +24,8 @@ const OPTIONAL_SERVICES: BluetoothServiceUUID[] = [
 
 const DEVICE_FILTERS: BluetoothLEScanFilter[] = [
   { services: ["56772eaf-2153-4f74-acf3-4368d99fbf5a"] },
+  { services: ["e0262760-08c2-11e1-9073-0e8ac72ea010"] },
+  { services: ["0000fdf0-0000-1000-8000-00805f9b34fb"] },
   { services: ["9a04f079-9840-4286-ab92-e65be0885f95"] },
   { services: ["0000180a-0000-1000-8000-00805f9b34fb"] }
 ];

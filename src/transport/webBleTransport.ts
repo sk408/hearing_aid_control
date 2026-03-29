@@ -29,7 +29,31 @@ export class WebBleTransport implements Transport {
         filters,
         optionalServices
       });
+    } catch (error) {
+      const maybeError = error as Error & { name?: string };
+      if (maybeError.name !== "NotFoundError") {
+        this.state = "disconnected";
+        throw new TransportError(`Connect failed: ${maybeError.message}`, "CONNECT_FAILED");
+      }
 
+      // Fallback: some hearing aids do not advertise service UUIDs consistently.
+      this.diagnostics.emit({
+        type: "transport.connect",
+        detail: "No device found with strict filters. Retrying with all nearby BLE devices."
+      });
+
+      try {
+        this.device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices
+        });
+      } catch (fallbackError) {
+        this.state = "disconnected";
+        throw new TransportError(`Connect failed: ${(fallbackError as Error).message}`, "CONNECT_FAILED");
+      }
+    }
+
+    try {
       this.device.addEventListener("gattserverdisconnected", this.onDisconnected);
       if (!this.device.gatt) {
         throw new TransportError("Selected device has no GATT server.", "NO_GATT");
