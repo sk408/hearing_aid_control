@@ -130,15 +130,26 @@ Source: `com/starkey/on/b.java`
 - `PiccoloResponse` — parses responses (138KB — extensive type hierarchy)
 
 ### Control Object IDs
-The `ControlObjectId` enum defines controllable hearing aid features:
+The `ControlObjectId` enum defines controllable hearing aid features (full enum from `ControlObjectId.java`):
 
 | Control Object | Function |
 |---------------|----------|
+| Memory | Program/memory slot selection |
 | MicrophoneVolume | Main hearing aid volume |
 | TinnitusVolume | Tinnitus masker volume |
 | StreamingVolume | Audio streaming volume |
 | AccessoryStreamingVolume | External accessory volume |
 | BalanceVolume | Left/right balance |
+| StreamingState | Streaming on/off state |
+| AdaptiveTuningState | Adaptive tuning feature on/off |
+| EqualizerBassState | Bass EQ band state |
+| EqualizerMiddleState | Mid EQ band state |
+| EqualizerTrebleState | Treble EQ band state |
+| NoiseReductionState | Noise reduction on/off |
+| WindReductionState | Wind noise reduction on/off |
+| StreamingEqualizerBassState | Bass EQ for streaming audio |
+| StreamingEqualizerMiddleState | Mid EQ for streaming audio |
+| StreamingEqualizerTrebleState | Treble EQ for streaming audio |
 
 ### GATT Operations (from IGattIo interface)
 

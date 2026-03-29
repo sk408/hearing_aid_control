@@ -12,17 +12,16 @@ This folder is the active workspace for per-vendor deep extraction.
 
 ## Current phase status
 
-- Starkey: phase 1 completed, phase 2 ready (smali/native boundary focus)
-- Philips: phase 1 completed, phase 2 ready (payload and callback decode focus)
-- Rexton: phase 1 completed, phase 2 blocked on .NET extraction/decompile
-- ReSound: phase 1 completed, phase 2 blocked on .NET extraction/decompile
+- Starkey: phase 1 and phase 2 static decode completed (Piccolo feature IDs, control-object IDs, and user-op request framing documented)
+- Philips: phase 1 and phase 2 static decode completed (request/response byte mappings documented)
+- ReSound: phase 1 and phase 2 static decode completed (managed extraction and GN command opcodes documented)
+- Rexton: phase 1 and phase 2 static decode completed (managed extraction, UUID topology, Basic Control bytes, programming control/data framing, bare transport inventory, and implementer workflow documented)
 
-## Phase 2 execution order
+## Next execution order
 
-1. Starkey
-2. Philips
-3. Rexton
-4. ReSound
+1. ReSound GN handle-to-user-operation mapping
+2. Rexton Control/FAPI frame decoding
+3. Cross-version comparison when more APK artifacts are available
 
 ## Definition of done (per vendor)
 

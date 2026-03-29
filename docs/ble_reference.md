@@ -87,6 +87,20 @@
 | `786ff607-774d-49d6-80a5-a17e08823d91` | Bonded Streaming | Write |
 | `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | PRE_POLARIS only | R/W |
 
+### Unlabeled Characteristics (from `CharacteristicUuidProvider.java`)
+
+Found in the POLARIS provider; switch-case handler not yet mapped. Function unknown.
+
+| UUID | Function | Type |
+|------|----------|------|
+| `29d9ed98-a469-4536-ade2-f981bc1d605e` | Unknown | — |
+| `87749df4-7ccf-48f8-aa87-704bad0e0e16` | Unknown | — |
+| `8a1695c7-5c40-4b42-8965-d97076e22b8d` | Unknown | — |
+| `9188040d-6c67-4c5b-b112-36a304b66dad` | Unknown | — |
+| `b31b99bf-5257-41d3-86df-ad84b30aea8e` | Unknown | — |
+| `ee224395-69b5-4622-8645-ff2566532795` | Unknown | — |
+| `adcf079a-bf94-4c4c-97e7-afef5aa06b38` | Unknown | — |
+
 ---
 
 ## Starkey Proprietary
@@ -284,9 +298,9 @@
 
 | Manufacturer | Services | Characteristics | Total Unique |
 |-------------|----------|-----------------|--------------|
-| Philips/Oticon | 6 | 22 | 28 |
+| Philips/Oticon | 6 | 29 (22 labeled + 7 unlabeled) | 35 |
 | Starkey | 3 | 30 | 33 |
-| ReSound/GN | 9+ | 23+ (unlabeled) | 32+ |
+| ReSound/GN | 9+ | 23+ (unlabeled — in .NET assemblies) | 32+ |
 | Rexton/WSA | 8+ | ~50 | 81 |
 | **Cross-platform** | 3 | 8 | 11 |
 

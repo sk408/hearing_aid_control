@@ -76,7 +76,69 @@
 |------|-------------|
 | `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | Special PRE_POLARIS characteristic |
 
+### Additional Unlabeled UUIDs (from `CharacteristicUuidProvider.java`)
+
+After deep decode of `c.i.a.a.u.l.a(...)`, the primary provider list is now mostly mapped.
+Previously listed UUIDs such as `29d9ed98...` / `9188040d...` were false positives from non-BLE codepaths and not Philips HA GATT characteristics.
+
+| UUID | Notes |
+|------|-------|
+| `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | Present in proprietary callback switch, no action body in this build |
+| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | Parsed as single byte into internal field `r`; product semantic unresolved |
+| `24e1dff3-ae90-41bf-bfbd-2cf8df42bf87` | Seen in older asm reference, not active in recovered callback switch |
+
+## Decoded callback map (service `56772eaf`)
+
+Recovered from debug/bad-code pass of `c.i.a.a.u.l.a(BluetoothGattCharacteristic, byte[], String)`:
+
+- `e5892ebe...` -> tinnitus/mic volume + mute state (`byte0`, `byte1==0`)
+- `60415e72...` -> EQ payload and 8-band gain decoding
+- `9215a295...` -> make-audible/tinnitus characteristic decode
+- `6e557876...` -> hearing environment frame decode (>=20-byte frame variants)
+- `50632720...` -> streaming volume + mute state
+- `d01ab591...` -> streaming state/source decode
+- `5f35c43d...` -> HIID string
+- `353ecc73...` -> partner HIID string
+- `42e940ef...` -> program-info version; triggers refresh if changed
+- `dcbe7a3e...` -> available-program bitset -> queue seed
+- `68bfa64e...` -> program list handshake gate
+- `bba1c7f1...` -> program metadata parser (category/name/flags)
+- `535442f7...` -> active program id
+- `1454e9d6...` -> main volume + mute state
+- `58bbccc5...` -> volume range limits (main/stream/mic ranges)
+- `bc6829c4...` -> uptime/session counters
+- `268c4933...` -> no-op in this version
+- `e24fac83...` -> one-byte internal status field
+
 ## Write Types
 From `k.java` handler:
 - `setWriteType(1)` — Write with response (reliable)
 - `setWriteType(2)` — Write without response (fast)
+
+## Bare GATT Communication Lifecycle
+
+All communications are serialized through `c.i.a.a.r.h` (single-operation queue). Core operation classes:
+
+- `c.i.a.a.r.d` — connect attempt
+- `c.i.a.a.r.b` — MTU request (`512`)
+- `c.i.a.a.r.f` — service discovery
+- `c.i.a.a.r.c` — notification enable/disable + CCCD (`00002902...`) descriptor write
+- `c.i.a.a.r.j` — characteristic read
+- `c.i.a.a.r.l` — characteristic write
+- `c.i.a.a.r.a` — connection priority request
+- `c.i.a.a.r.k` — RSSI read
+
+Ingress callbacks carrying HA communication payloads:
+
+- `onCharacteristicRead`
+- `onCharacteristicChanged`
+- both routed to `c.i.a.a.u.l.a(BluetoothGattCharacteristic, byte[], String)` for service/characteristic-specific decode
+- `onCharacteristicWrite` routed to `c.i.a.a.u.k` for write reconciliation / convergence retries
+
+Startup communication order in connected path:
+
+1. Connect GATT
+2. Request MTU and discover services
+3. Enable notifications for subscribed characteristics (CCCD writes)
+4. Initial read sweep over required characteristics
+5. Feature control traffic (program/volume/stream/bonding)

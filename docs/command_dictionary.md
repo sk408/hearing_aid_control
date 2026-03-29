@@ -18,31 +18,48 @@ It is intended as an implementation aid and includes confidence markers.
 
 - **Philips POLARIS mirror:**
   - UUID: `50632720-4c0f-4bc4-960a-2404bdfdfbca`
-  - Write: likely ASHA-aligned signed int8
-  - Confidence: `partial`
+  - Write (confirmed in app code): two-byte payload `[levelByte, muteFlagByte]`
+  - Encoding: `levelByte = (byte) level`, `muteFlagByte = (!isMuted) ? 1 : 0`
+  - Readback logic: parse byte0 as level and `byte1 == 0` as muted
+  - Confidence: `confirmed`
 
 - **Rexton Terminal IO Basic Control:**
   - UUID: `8b8276e8-0f0c-40bb-b422-3770fa72a864`
-  - Candidate payload: `[0x01, volume_byte]`
-  - Confidence: `partial`
+  - Confirmed payload: `[0x04, volumePosition]`
+  - Confidence: `confirmed`
 
 - **Starkey Piccolo:**
   - Service: `9a04f079-9840-4286-ab92-e65be0885f95`
-  - Candidate payload shape: `[opcode, MicrophoneVolume_id, value]`
-  - Confidence: `partial`
+  - App-level request bytes (ExecuteFeature SetVolume):
+    - `[0x12, 0x06, 0x04, 0x00, 0x04, 0x35, volume]`
+  - Confidence: `confirmed` (app-layer Piccolo framing)
 
-- **ReSound GN proprietary:**
-  - UUID: `e0262760-08c2-11e1-9073-0e8ac72ea110`
-  - Payload encoding: unknown (ASHA-aligned or percent scale possible)
-  - Confidence: `inferred`
+- **ReSound GN proprietary (corrected path):**
+  - Primary command UUID: `1959A468-3234-4C18-9E78-8DAF8D9DBF61` (GNCommand)
+  - Primary notify UUID: `8B51A2CA-5BED-418B-B54B-22FE666AADD2` (GNNotify)
+  - Command interface uses opcode-based handle protocol, not single static volume UUID writes.
+  - Confidence: `partial`
 
 ## Program switch
 
+- **Philips program select path:**
+  - UUID: `535442f7-0ff7-4fec-9780-742f3eb00eda`
+  - Request payload (confirmed): `[(byte) targetProgram]`
+  - Readback logic (confirmed): compare characteristic byte0 to pending target
+  - Confidence: `confirmed`
+
+- **Philips program list control path:**
+  - UUID: `68bfa64e-3209-4172-b117-f7eafce17414`
+  - Request payload (confirmed framing): `[(byte) command]`
+  - Known ready sentinel (confirmed): response byte0 `== 255`
+  - Follow-up read when not ready: `bba1c7f1-b445-4657-90c3-8dbd97361a0c`
+  - Confidence: `partial`
+
 - **Rexton Terminal IO:**
   - UUID: `8b8276e8-0f0c-40bb-b422-3770fa72a864`
-  - Candidate payload: `[0x02, target_program_index]`
+  - Confirmed payload: `[0x05, target_program_index]`
   - Confirm via: `8b8225e0-0f0c-40bb-b422-3770fa72a864` notifications
-  - Confidence: `partial`
+  - Confidence: `confirmed`
 
 - **Rexton Control Request path:**
   - Request UUID: `c8f75466-21b2-45b8-87f8-bd49a13eff49`
@@ -51,14 +68,15 @@ It is intended as an implementation aid and includes confidence markers.
   - Confidence: `inferred`
 
 - **Starkey Piccolo:**
-  - Candidate operation target: program object in Piccolo command stream
-  - Byte schema: unknown
-  - Confidence: `inferred`
+  - App-level request bytes (ExecuteFeature SetMemory):
+    - `[0x12, 0x06, 0x04, 0x00, 0x04, 0x34, memoryIndex]`
+  - Confidence: `confirmed` (app-layer Piccolo framing)
 
 - **ReSound GN proprietary:**
-  - UUID: `e0262760-08c2-11e1-9073-0e8ac72ea111`
-  - Byte schema: unknown
-  - Confidence: `inferred`
+  - `e026...` family roles are primarily control/status/firmware endpoints in this build.
+  - Program switching appears to be mediated via GN command/notify handle protocol.
+  - Byte schema is still being decoded from handle-based frames.
+  - Confidence: `partial`
 
 ## Mute/unmute
 
@@ -66,14 +84,25 @@ It is intended as an implementation aid and includes confidence markers.
   - Emulation via volume minimum (`-128`) where needed
   - Confidence: `partial`
 
+- **Philips proprietary mute bit (confirmed):**
+  - Routes: `1454e9d6...`, `50632720...`, `e5892ebe...`
+  - Encoding: second payload byte is inverted mute boolean (`0` = muted, `1` = unmuted)
+  - Confidence: `confirmed`
+
 - **Rexton Basic Control:**
   - UUID: `8b8276e8-0f0c-40bb-b422-3770fa72a864`
-  - Candidate opcode: `0x03`
-  - Confidence: `inferred`
+  - Confirmed related opcodes:
+    - sound balance: `[0x06, value]`
+    - tinnitus volume: `[0x07, value]`
+    - CROS volume: `[0x08, value]`
+  - Mute/unmute opcode remains unresolved in this pass.
+  - Confidence: `partial`
 
 - **Starkey and ReSound proprietary mute path:**
-  - Channel known, payload unknown
-  - Confidence: `inferred`
+  - Starkey app-layer request bytes (ExecuteFeature SetMute):
+    - `[0x12, 0x06, 0x04, 0x00, 0x04, 0x3A, muteByte]`
+  - ReSound channel known, payload body still unresolved per operation.
+  - Confidence: `partial`
 
 ## Stream control
 
@@ -84,10 +113,20 @@ It is intended as an implementation aid and includes confidence markers.
   - Status: `[0x03, other_device_status]`
   - Confidence: `confirmed`
 
-- **ReSound proprietary stream control:**
-  - Candidate UUID: suffix `a112`
-  - Payload schema unknown
-  - Confidence: `inferred`
+- **ReSound stream-related notes (corrected):**
+  - `e026...a112` appears as firmware image data endpoint in this build.
+  - Operational stream/user-control traffic is likely tunneled via GN command/notify.
+  - Confirmed GN command frame shapes:
+    - write handle: `[0x03, handleLow, payload...]`
+    - read handle: `[0x04, handleLow]`
+    - read blob: `[0x05, handleLow, 0x00, 0x00]`
+    - discover: `[0x06]`
+  - Confidence: `partial`
+
+- **Starkey Piccolo stream control (accessory stream):**
+  - App-layer request bytes (ExecuteFeature StartStopAccessoryStreaming):
+    - `[0x12, 0x06, 0x04, 0x00, 0x04, 0x3D, startByte]`
+  - Confidence: `confirmed` (app-layer Piccolo framing)
 
 ## Pairing/bonding and side identification
 
@@ -104,10 +143,40 @@ It is intended as an implementation aid and includes confidence markers.
   - Candidate values (`Android/iOS/etc.`) documented but not wire-confirmed
   - Confidence: `inferred`
 
+## Programming/control transport
+
+- **Rexton Programming Service control channel (`Control Request/Response`):**
+  - Request UUID: `c8f75466-21b2-45b8-87f8-bd49a13eff49` (alt `c8f79c9a-...`)
+  - Response UUID: `c8f70447-21b2-45b8-87f8-bd49a13eff49` (alt `c8f73dc3-...`)
+  - Request frame: `[commandId, payload...]`
+  - Confirmed command IDs:
+    - `0x00` start programming
+    - `0x02` stop programming
+    - `0x04` start high-performance
+    - `0x06` stop high-performance
+    - `0x08` connection-parameter update
+    - `0x0A` connection-priority
+    - `0x0C` version info
+  - Response byte0 semantics:
+    - bit0 error flag, bits1..7 echoed command id
+  - `VersionInfo` response parse:
+    - byte1 high nibble = major, low nibble = minor
+  - `ConnectionParameterUpdate` success parse:
+    - byte1 interpreted as MTU size in request-priority flow
+  - Confidence: `confirmed`
+
+- **Rexton Programming Service data channel (`Data Request/Response`):**
+  - Request UUID: `c8f72804-21b2-45b8-87f8-bd49a13eff49` (alt `c8f7a8e4-...`)
+  - Response UUID: `c8f72fef-21b2-45b8-87f8-bd49a13eff49` (alt `c8f7a68a-...`)
+  - Transport behavior:
+    - app chunks requests larger than BLE package size
+    - app reassembles notifications until expected response length
+  - Confidence: `confirmed`
+
 ## Next dictionary upgrades
 
-1. Replace inferred Starkey object IDs with numeric values from decompiled enums.
-2. Replace inferred Rexton Basic Control opcodes with verified bytes.
+1. Map Starkey app-layer bytes to native transport-on-wire framing below `SendPacketResult`.
+2. Resolve Rexton mute/unmute command bytes (or confirm volume-minimum emulation path).
 3. Add per-operation request and response example hex frames.
 4. Add source anchors for each entry once extracted from specific class/method paths.
 

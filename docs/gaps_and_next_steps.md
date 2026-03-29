@@ -15,7 +15,7 @@ Status as of 2026-03-28. Documents what still needs investigation and what tools
 | **SSI service UUID** | `SSI.java` does not specify a service UUID for `5446xxxx` characteristics. |
 | **Unknown GASS chars** | `d0b6dc42` and `84f9e90a` are retrieved in the GASS constructor but results are immediately discarded (not assigned to a named field). Purpose unknown — possibly placeholders for future features or legacy compatibility probes. |
 | **Piccolo binary format** | `PiccoloCommand.java` and `PiccoloResponse.java` contain the command byte layout but the full binary protocol schema (op codes, field offsets, value encoding) has not been mapped. `PiccoloResponse.java` at 138KB has extensive message type parsing. |
-| **ControlObjectId full enum** | Only 5 control objects are currently documented (MicrophoneVolume, TinnitusVolume, etc.). `ControlObjectId.java` likely has more values (programs, noise reduction, directionality settings). |
+| ~~ControlObjectId full enum~~ | **RESOLVED** — Full 16-value enum extracted: Memory, MicrophoneVolume, TinnitusVolume, StreamingVolume, AccessoryStreamingVolume, BalanceVolume, StreamingState, AdaptiveTuningState, EqualizerBassState, EqualizerMiddleState, EqualizerTrebleState, NoiseReductionState, WindReductionState, StreamingEqualizerBassState, StreamingEqualizerMiddleState, StreamingEqualizerTrebleState. See `starkey.md`. |
 | **HaConfigOpCode** | `HaConfigOpCode.java` and `HAConfigID.java` contain the op-code and config-ID enums used over the GattConsolidation service. These have not been read. |
 
 ### ReSound / GN Hearing
@@ -30,6 +30,7 @@ Status as of 2026-03-28. Documents what still needs investigation and what tools
 
 | Gap | Detail |
 |-----|--------|
+| **7 unlabeled POLARIS characteristics** | Found in `CharacteristicUuidProvider.java` but not appearing in any switch-case handler: `29d9ed98`, `87749df4`, `8a1695c7`, `9188040d`, `b31b99bf`, `ee224395`, `adcf079a`. Function unknown — could be newer POLARIS features, diagnostic channels, or remote fitting characteristics. Need to search for these UUIDs as write targets in `k.java` and related handler files, or use live BLE capture to observe when they're activated. |
 | **Command byte encoding** | Characteristic UUIDs and their broad functions are well-documented. The actual byte-level encoding of write payloads (e.g., volume levels, program IDs, EQ values) is not mapped. |
 | **PRE_POLARIS compatibility** | The legacy `14293049` service and `d5d0affb` characteristic used in pre-POLARIS devices have not been analyzed in depth. |
 
