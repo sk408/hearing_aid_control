@@ -1,9 +1,12 @@
 *.apk
 *.xapk
 *.zip
+*.jar
+jadx/
 jadx_output/
 xapk_extracted/
 __pycache__/
+*.pyc
 null/
 .claude/
-*.pyc
+PowerShell 7.6.0/
