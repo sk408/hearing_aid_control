@@ -24,10 +24,10 @@ Scope: Rexton UUID support comparison against Philips, ReSound, and Starkey evid
 | `34dfc7cb-5252-430b-ba6d-df2fe87914e7` | confirmed | confirmed | none | none | bonded feed overlap |
 | `6efab52e-3002-4764-9430-016cef4dfc87` | confirmed | confirmed | none | none | bonded control overlap |
 | `8b8276e8-0f0c-40bb-b422-3770fa72a864` | confirmed | none | none | none | Rexton-only basic control |
-| `c8f75466-...-bd49a13eff49` | confirmed | none | none | none | Rexton-only control request |
-| `c8f70447-...-bd49a13eff49` | confirmed | none | none | none | Rexton-only control response |
-| `c8f723da-...-bd49a13eff49` | confirmed | none | none | none | Rexton-only FAPI request |
-| `c8f7690c-...-bd49a13eff49` | confirmed | none | none | none | Rexton-only FAPI response |
+| `c8f75466-21b2-45b8-87f8-bd49a13eff49` | confirmed | none | none | none | Rexton-only control request |
+| `c8f70447-21b2-45b8-87f8-bd49a13eff49` | confirmed | none | none | none | Rexton-only control response |
+| `c8f723da-21b2-45b8-87f8-bd49a13eff49` | confirmed | none | none | none | Rexton-only FAPI request |
+| `c8f7690c-21b2-45b8-87f8-bd49a13eff49` | confirmed | none | none | none | Rexton-only FAPI response |
 
 ## 3) Semantic overlap (same behavior, different transport)
 

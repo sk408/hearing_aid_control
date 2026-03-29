@@ -1,25 +1,25 @@
 # Rexton Hearing Aid UUID Dossier 02: Runtime Capture Matrix
 
 Date: 2026-03-28  
-Scope: expected runtime TX/RX mapping for core Rexton operations based on static decode.
+Scope: runtime TX/RX mapping targets for core Rexton operations based on static decode.
 
 ## 1) Matrix legend
 
 - `TX`: outgoing write frame.
-- `RX`: expected response/notify frame.
-- `status`: `confirmed`, `expected`, `unknown`.
+- `RX`: response/notify frame target.
+- `status`: `confirmed`, `partial`, `inferred`, `inactive-in-baseline`.
 
 ## 2) Action-to-frame matrix
 
 | Action | TX UUID | TX bytes | RX UUID | RX expectation | status |
 |---|---|---|---|---|---|
-| Set volume | `8b8276e8...` | `[0x04, volume]` | `8b8225e0...` or control state path | active volume/program state update | confirmed/expected |
-| Set program | `8b8276e8...` | `[0x05, programId]` | `8b8225e0...` | active program reflects target | confirmed/expected |
-| Set sound balance | `8b8276e8...` | `[0x06, balance]` | state notify path | value update | confirmed/expected |
-| Set tinnitus volume | `8b8276e8...` | `[0x07, tinnitus]` | state notify path | value update | confirmed/expected |
-| Set CROS volume | `8b8276e8...` | `[0x08, cros]` | state notify path | value update | confirmed/expected |
-| Set TV stream volume | `8b8276e8...` | `[0x09, 15-slider]` | state notify path | mapped value update | confirmed/expected |
-| Legacy OBLE stream volume | `50632720...` | nonzero `[(slider-1),0x01]`, zero `[0x00,0x00]` | same char/state callback | reflects slider state | confirmed/expected |
+| Set volume | `8b8276e8...` | `[0x04, volume]` | `8b8225e0...` or control state path | active volume/program state update | confirmed/partial |
+| Set program | `8b8276e8...` | `[0x05, programId]` | `8b8225e0...` | active program reflects target | confirmed/partial |
+| Set sound balance | `8b8276e8...` | `[0x06, balance]` | state notify path | value update | confirmed/partial |
+| Set tinnitus volume | `8b8276e8...` | `[0x07, tinnitus]` | state notify path | value update | confirmed/partial |
+| Set CROS volume | `8b8276e8...` | `[0x08, cros]` | state notify path | value update | confirmed/partial |
+| Set TV stream volume | `8b8276e8...` | `[0x09, 15-slider]` | state notify path | mapped value update | confirmed/partial |
+| Legacy OBLE stream volume | `50632720...` | nonzero `[(slider-1),0x01]`, zero `[0x00,0x00]` | same char/state callback | reflects slider state | confirmed/partial |
 
 ## 3) Programming session matrix
 
@@ -42,7 +42,7 @@ Scope: expected runtime TX/RX mapping for core Rexton operations based on static
 | Send FAPI request | `c8f723da...` raw serializer bytes | `c8f7690c...` | decoded by FAPI core callback | confirmed transport |
 | Stop FAPI updates | unsubscribe `c8f7690c...` | n/a | response stream stopped | confirmed |
 
-## 5) Runtime unknowns to resolve in capture
+## 5) Runtime unresolved items to resolve in capture
 
 - Concrete payload schemas for many FAPI feature calls.
 - Which alias UUIDs (`c8f79c9a...`, `c8f73dc3...`, `c8f7a8e4...`, `c8f7a68a...`) are active per model.

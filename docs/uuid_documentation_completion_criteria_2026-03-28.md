@@ -9,7 +9,7 @@ For each vendor (Philips, ReSound, Rexton, Starkey), complete set exists:
 - static registry dossier,
 - runtime capture matrix,
 - vendor support matrix,
-- missing/unknowns dossier,
+- missing/unresolved dossier,
 - references/reminders dossier.
 
 Cross-vendor set exists:
@@ -21,11 +21,11 @@ Cross-vendor set exists:
 
 Every UUID row should include:
 - vendor scope,
-- confidence (`confirmed` / `partial` / `unknown`),
+- confidence (`confirmed` / `partial` / `inferred` / `inactive-in-baseline`),
 - value schema (if known),
 - source anchor (file/symbol reference).
 
-Every unknown should include:
+Every unresolved item should include:
 - why unresolved,
 - proposed closure experiment,
 - risk if misused.
@@ -38,7 +38,7 @@ Documentation can be considered complete-for-implementation when, per vendor:
   - program
   - mute
   - stream control
-- unknown channels are either:
+- unresolved channels are either:
   - decoded, or
   - explicitly classified as inactive/unverified with constraints.
 
@@ -53,7 +53,7 @@ For each new app version analyzed:
 
 - Documentation structure: complete.
 - Static UUID inventory coverage: high across all four vendors.
-- Runtime-validated payload completeness: still pending for several unknown channels.
+- Runtime-validated payload completeness: still pending for several unresolved channels.
 
 Conclusion:
 - No more *structural* docs are required right now.

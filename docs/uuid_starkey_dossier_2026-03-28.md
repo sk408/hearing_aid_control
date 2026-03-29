@@ -56,8 +56,8 @@ Protocol note: strongest evidence is app-layer Piccolo framing; lower native pac
 | `b5a0badd-7739-4712-8804-a60a0ed9bdec` | assistant status point | confirmed |
 | `c43b2a46-e802-4ea4-81b1-97987cd33b1c` | assistant control point | confirmed |
 | `7de95c7f-12de-40a9-b77c-6712da671217` | audio source enable | confirmed |
-| `d0b6dc42-03c8-457a-a347-ade8d1c4e98d` | unknown GASS char | unknown |
-| `84f9e90a-884a-4bb3-85f2-e77399189874` | unknown GASS char | unknown |
+| `d0b6dc42-03c8-457a-a347-ade8d1c4e98d` | unresolved GASS char | partial |
+| `84f9e90a-884a-4bb3-85f2-e77399189874` | unresolved GASS char | partial |
 | `985c6f7d-ac66-445a-b65e-573fc0d72f46` | put-on reminder toggle | partial |
 | `ae1badbf-a989-4d02-bbe8-25cb10254202` | self-check reminder toggle | partial |
 

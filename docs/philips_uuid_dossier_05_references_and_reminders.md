@@ -99,7 +99,7 @@ Operational reminder:
 
 ## 6) Reminders for Future Documentation Updates
 
-1. Keep a per-UUID status field (`confirmed`, `expected`, `partial/potential`, `unknown`).
+1. Keep a per-UUID status field (`confirmed`, `partial`, `inferred`, `inactive-in-baseline`).
 2. Always separate static inference from runtime-validated behavior.
 3. Record vendor overlap explicitly to avoid false assumptions of Philips-only ownership.
 4. Preserve a changelog section when adding new app versions.
@@ -109,7 +109,7 @@ Operational reminder:
 
 ## 7) Reminders for Safe Implementation Work
 
-1. Do not issue writes to unknown channels during testing.
+1. Do not issue writes to unresolved channels during testing.
 2. Keep user-facing control to confirmed channels and bounded values.
 3. Maintain serialized GATT queue behavior; avoid concurrent writes.
 4. Treat fitting/programming-like pathways as high risk unless fully decoded.
@@ -121,7 +121,7 @@ Operational reminder:
 Mark the Philips UUID documentation effort as "complete enough for implementation" when:
 
 - all currently known Philips UUIDs are either decoded or explicitly marked inactive for baseline;
-- unknown channels have targeted runtime experiments documented and executed;
+- unresolved channels have targeted runtime experiments documented and executed;
 - one additional Philips app version has been diffed for UUID stability;
 - runtime capture matrix contains at least one validated frame example per major user operation:
   - main volume/mute

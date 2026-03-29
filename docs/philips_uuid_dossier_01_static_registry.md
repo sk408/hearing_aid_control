@@ -21,9 +21,9 @@ Scope: Philips HearLink ecosystem on Oticon/Demant BLE stack, with cross-vendor 
 ### Confidence levels used in this dossier
 
 - `confirmed`: directly recovered from static decode and/or callback/write paths with byte-level behavior.
-- `expected`: strongly implied by stack architecture and standards, but not yet wire-validated in this workspace.
-- `potential`: listed or referenced in broader project docs, but not proven as active Philips HA control path in current baseline.
-- `unknown`: UUID exists in Philips control context but payload semantics unresolved.
+- `partial`: strongly implied by stack architecture and standards, but not yet runtime-validated in this workspace.
+- `inferred`: listed or referenced in broader project docs, but not proven as active Philips HA control path in current baseline.
+- `inactive-in-baseline`: present in references or code paths but not active in the baseline control path.
 
 ### Baseline artifact context
 
@@ -37,10 +37,10 @@ Scope: Philips HearLink ecosystem on Oticon/Demant BLE stack, with cross-vendor 
 | UUID | Label / Role | Status | Vendor Support Notes | Source Anchors |
 |---|---|---|---|---|
 | `56772eaf-2153-4f74-acf3-4368d99fbf5a` | Oticon/Philips proprietary primary control service (POLARIS) | confirmed | Philips; also documented in Rexton/WSA stacks (shared platform lineage) | `docs/philips_hearlink.md`, `docs/deep_extraction/philips_phase2_static.md`, `docs/ble_reference.md` |
-| `14293049-77d7-4244-ae6a-d3873e4a3184` | PRE_POLARIS legacy proprietary service | confirmed (presence), unknown (full behavior) | Philips legacy only (current scope) | `docs/philips_hearlink.md`, `docs/ble_reference.md` |
+| `14293049-77d7-4244-ae6a-d3873e4a3184` | PRE_POLARIS legacy proprietary service | confirmed (presence), partial (full behavior) | Philips legacy only (current scope) | `docs/philips_hearlink.md`, `docs/ble_reference.md` |
 | `0a23ae62-c4c2-43d1-87b1-e8c83839a063` | ASHA-side bonded-device/bonding service used in Philips parser flow | confirmed | Philips; also seen in Rexton bonding paths | `docs/philips_hearlink.md`, `docs/deep_extraction/philips_phase2_static.md`, `docs/ble_reference.md` |
 | `0000180a-0000-1000-8000-00805f9b34fb` | Device Information Service | confirmed | Standard SIG service; cross-vendor | `docs/philips_hearlink.md`, `docs/deep_extraction/philips_phase2_static.md` |
-| `0000180f-0000-1000-8000-00805f9b34fb` | Battery Service | confirmed (enumerated), expected (payload mapping in Philips path) | Standard SIG service; cross-vendor | `docs/philips_hearlink.md`, `docs/ble_reference.md` |
+| `0000180f-0000-1000-8000-00805f9b34fb` | Battery Service | confirmed (enumerated), partial (payload mapping in Philips path) | Standard SIG service; cross-vendor | `docs/philips_hearlink.md`, `docs/ble_reference.md` |
 | `7d74f4bd-c74a-4431-862c-cce884371592` | MFi HAP service (Apple-side compatibility path) | confirmed (service presence) | Philips + ReSound per current docs; runtime use in Android path not analyzed here | `docs/philips_hearlink.md`, `docs/ble_reference.md` |
 
 ---
@@ -70,24 +70,24 @@ Scope: Philips HearLink ecosystem on Oticon/Demant BLE stack, with cross-vendor 
 | `dcbe7a3e-a742-4527-aeb5-cd8dee63167f` | Available-program bitset | bitset seeds queue of program ids + sentinel | confirmed | Operationally paired with `68bfa64e` + `bba1c7f1`. |
 | `58bbccc5-5a57-4e00-98d5-18c6a0408dfd` | Volume range limits | byte pairs for min/max ranges (main/stream/tinnitus when present) | confirmed | Used as bounds source before writes. |
 | `d01ab591-d282-4ef5-b83b-538e0bf32d85` | Streaming state/status | byte0 state + source decomposition from byte1 and optional fields | confirmed | Streaming state parser exists in callback path. |
-| `60415e72-c345-417a-bb2b-bbba95b2c9a3` | EQ/gain transport | observed raw and framed payload builders (including 16-byte form) | confirmed (write construction), unknown (full domain semantics) | Requires runtime feature-level validation for UX mapping. |
-| `6e557876-ccc4-40e0-8c2d-651542c5ad3d` | Soundscape/environment parameter | observed write form `[0, value]` with value bounded 0..255 | confirmed (shape), expected (semantic meaning) | Controls environment-related tuning dimension. |
+| `60415e72-c345-417a-bb2b-bbba95b2c9a3` | EQ/gain transport | observed raw and framed payload builders (including 16-byte form) | confirmed (write construction), partial (full domain semantics) | Requires runtime feature-level validation for UX mapping. |
+| `6e557876-ccc4-40e0-8c2d-651542c5ad3d` | Soundscape/environment parameter | observed write form `[0, value]` with value bounded 0..255 | confirmed (shape), partial (semantic meaning) | Controls environment-related tuning dimension. |
 | `6efab52e-3002-4764-9430-016cef4dfc87` | Bonded-device access control | write forms `[1,0]` and `[2,slot]` | confirmed | Shared UUID with Rexton docs. |
 | `786ff607-774d-49d6-80a5-a17e08823d91` | Streaming-device activation | fixed 8-byte payload `[0x10, addr0..addr5, slot]`; write type with response | confirmed | Bridge from bonded cache to active stream routing. |
 | `34dfc7cb-5252-430b-ba6d-df2fe87914e7` | ASHA-side bonded feed records | parser handles entry/remove/end marker record shapes | confirmed | Also appears in cross-vendor shared tables. |
 | `5f35c43d-e0f4-4da9-87e6-9719982cd25e` | HIID string | string read | confirmed | Shared with Rexton docs. |
 | `353ecc73-4d2c-421b-ac1c-8dcb35cd4477` | Partner HIID string | string read | confirmed | Shared with Rexton docs. |
 | `bc6829c4-b750-48e6-b6f4-48ec866a1efb` | Uptime/session counters | callback parses optional int32 values | confirmed | Counter semantics partially inferred from parser behavior. |
-| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | Single-byte status field (`this.r`) | `uint8@0` stored; product meaning unresolved | unknown | High-priority unresolved semantic. |
-| `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | Callback switch presence | no-op in this app build | unknown | Could be dormant or version-gated feature. |
-| `9215a295-b813-483f-9f85-b700d0b7bc75` | Make-audible / tinnitus channel | callback path identified; detailed payload spec incomplete | expected | Present in characteristic map and decode routing. |
-| `51939bb6-a635-4b1e-903b-76cd9dff3fac` | Bonded device characteristic | listed in provider maps; behavior not fully decoded in current notes | potential | Appears in service map, not fully documented in parser notes. |
+| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | Single-byte status field (`this.r`) | `uint8@0` stored; product meaning unresolved | partial | High-priority unresolved semantic. |
+| `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | Callback switch presence | no-op in this app build | inactive-in-baseline | Could be dormant or version-gated feature. |
+| `9215a295-b813-483f-9f85-b700d0b7bc75` | Make-audible / tinnitus channel | callback path identified; detailed payload spec incomplete | partial | Present in characteristic map and decode routing. |
+| `51939bb6-a635-4b1e-903b-76cd9dff3fac` | Bonded device characteristic | listed in provider maps; behavior not fully decoded in current notes | inferred | Appears in service map, not fully documented in parser notes. |
 
 ### 3.3 PRE_POLARIS specific characteristic
 
 | UUID | Role | Status | Notes |
 |---|---|---|---|
-| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | PRE_POLARIS special characteristic | confirmed (existence), unknown (payload/semantics) | Explicitly flagged as legacy-specific in current references. |
+| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | PRE_POLARIS special characteristic | confirmed (existence), partial (payload/semantics) | Explicitly flagged as legacy-specific in current references. |
 
 ---
 
@@ -107,7 +107,7 @@ The following values appear in older or broader reference docs as "unlabeled" Ph
 
 Current Philips-specific deep decode notes indicate at least part of this set may represent false positives from non-BLE or inactive code paths in this baseline, and they are not currently represented in the recovered callback map.
 
-Status in this dossier: `potential` until runtime trace or additional APK versions prove active wire usage.
+Status in this dossier: `inferred` until runtime trace or additional APK versions prove active wire usage.
 
 ### 4.2 Standard ASHA characteristic UUIDs expected in Philips environments
 
@@ -119,7 +119,7 @@ These are expected because Philips app stack advertises ASHA service support, bu
 - `00e4ca9e-ab14-41e4-8823-f9e70c7e91df` (ASHA Volume)
 - `2d410339-82b6-42aa-b34e-e2e01df8cc1a` (ASHA LE PSM, v2)
 
-Status in this dossier: `expected` for Philips ecosystem compatibility, but not yet asserted as the app's primary control surface for all user actions.
+Status in this dossier: `partial` for Philips ecosystem compatibility, but not yet asserted as the app's primary control surface for all user actions.
 
 ---
 
@@ -170,7 +170,7 @@ This section tracks likely first-party coverage gaps in current static-only inve
 
 ### Documentation hygiene reminders
 
-- Maintain a "status per UUID" field (`confirmed`/`expected`/`potential`/`unknown`) in every future dossier.
+- Maintain a "status per UUID" field (`confirmed`/`partial`/`inferred`/`inactive-in-baseline`) in every future dossier.
 - Flag and reconcile contradictions between project-wide summary docs and Philips deep extraction docs instead of merging them silently.
 
 ---

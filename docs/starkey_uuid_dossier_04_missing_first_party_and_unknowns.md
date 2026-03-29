@@ -1,9 +1,9 @@
-# Starkey Hearing Aid UUID Dossier 04: Missing First-Party Coverage and Unknowns
+# Starkey Hearing Aid UUID Dossier 04: Missing First-Party Coverage and Unresolved Areas
 
 Date: 2026-03-28  
 Scope: unresolved Starkey UUID semantics and likely missing first-party channels.
 
-## 1) High-priority unknowns
+## 1) High-priority unresolved areas
 
 | UUID/Area | Current state | Gap |
 |---|---|---|
@@ -15,7 +15,7 @@ Scope: unresolved Starkey UUID semantics and likely missing first-party channels
 ## 2) Potentially missing first-party channels
 
 - Device-generation-specific optional characteristics may be present only on some firmware families.
-- Some accessory or assistant operations may be multiplexed through channels that are currently labeled unknown.
+- Some accessory or assistant operations may be multiplexed through channels that are currently labeled unresolved.
 - Additional control-object IDs beyond documented set may exist in newer versions.
 
 ## 3) Closure plan
@@ -29,11 +29,11 @@ Scope: unresolved Starkey UUID semantics and likely missing first-party channels
 
 ## 4) Risk notes
 
-- Unknown channels can include non-user-safe operations; avoid exploratory writes without bounded test context.
+- Unresolved channels can include non-user-safe operations; avoid exploratory writes without bounded test context.
 - Assuming app-layer framing equals wire framing can break interoperability and error handling.
 
 ## 5) Completion criteria
 
-- Unknown assistant UUIDs are semantically classified.
+- Unresolved assistant UUIDs are semantically classified.
 - Transport wrapper fields are documented with at least one request/response pair per core operation.
 - Feature-support bitfields are mapped to actionable operation capability flags.

@@ -131,7 +131,7 @@ From static handle map examples in Dooku3 profile notes:
 - Stream status read (`handle 0x15`):
   - request `[0x04, 0x15]`, expect event `0x03` tuple
 
-## 9) Unknowns to Close with Dynamic Capture
+## 9) Unresolved Items to Close with Dynamic Capture
 
 - Full encryption envelope details (IV/nonces/session lifecycle).
 - Exact notify vector bit assignments to characteristic domains.

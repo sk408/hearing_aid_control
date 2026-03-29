@@ -31,8 +31,8 @@ Scope: reference index and maintenance reminders for Starkey UUID documentation.
 
 ## 4) Reminders
 
-1. Keep per-UUID confidence tags current (`confirmed`, `expected`, `unknown`).
+1. Keep per-UUID confidence tags current (`confirmed`, `partial`, `inferred`, `inactive-in-baseline`).
 2. Always distinguish app-layer Piccolo framing from transport-layer packet framing.
 3. Track primary vs fallback Piccolo characteristic usage by model and firmware.
-4. Keep unknown assistant channels documented separately until decoded.
+4. Keep unresolved assistant channels documented separately until decoded.
 5. Add version deltas whenever new Starkey app versions are analyzed.

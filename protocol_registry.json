@@ -1,0 +1,303 @@
+[
+  {
+    "brand": "philips",
+    "operation": "SetVolume",
+    "serviceUuid": "56772eaf-2153-4f74-acf3-4368d99fbf5a",
+    "characteristicUuid": "1454e9d6-f658-4190-8589-22aa9e3021eb",
+    "requestFrameTemplate": ["levelByte", "notMutedFlagByte"],
+    "responsePattern": {
+      "readback": {
+        "levelByteIndex": 0,
+        "muteByteIndex": 1,
+        "muteWhenValueEquals": 0
+      }
+    },
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/command_dictionary.md", "docs/deep_extraction/philips_phase2_static.md"]
+  },
+  {
+    "brand": "philips",
+    "operation": "SetProgram",
+    "serviceUuid": "56772eaf-2153-4f74-acf3-4368d99fbf5a",
+    "characteristicUuid": "535442f7-0ff7-4fec-9780-742f3eb00eda",
+    "requestFrameTemplate": ["targetProgramByte"],
+    "responsePattern": {},
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/command_dictionary.md", "docs/deep_extraction/philips_phase2_static.md"]
+  },
+  {
+    "brand": "philips",
+    "operation": "SetMute",
+    "serviceUuid": "56772eaf-2153-4f74-acf3-4368d99fbf5a",
+    "characteristicUuid": "50632720-4c0f-4bc4-960a-2404bdfdfbca",
+    "requestFrameTemplate": ["levelByte", "notMutedFlagByte"],
+    "responsePattern": {
+      "readback": {
+        "muteByteIndex": 1,
+        "muteWhenValueEquals": 0
+      }
+    },
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/command_dictionary.md", "docs/deep_extraction/philips_phase2_static.md"]
+  },
+  {
+    "brand": "philips",
+    "operation": "GetBatteryState",
+    "serviceUuid": "0000180f-0000-1000-8000-00805f9b34fb",
+    "characteristicUuid": "00002a19-0000-1000-8000-00805f9b34fb",
+    "requestFrameTemplate": ["read"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "partial",
+    "status": "partial",
+    "blockReason": "Battery service is not present on all Philips profiles.",
+    "sourceRefs": ["docs/ble_reference.md"]
+  },
+  {
+    "brand": "philips",
+    "operation": "GetDeviceInfo",
+    "serviceUuid": "0000180a-0000-1000-8000-00805f9b34fb",
+    "requestFrameTemplate": ["readManufacturer", "readModel", "readFirmware"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/ble_reference.md"]
+  },
+  {
+    "brand": "philips",
+    "operation": "RefreshState",
+    "serviceUuid": "56772eaf-2153-4f74-acf3-4368d99fbf5a",
+    "requestFrameTemplate": ["readVolume", "readProgram", "readStreamState"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/deep_extraction/philips_phase2_static.md"]
+  },
+  {
+    "brand": "rexton",
+    "operation": "SetVolume",
+    "serviceUuid": "8b82105d-0f0c-40bb-b422-3770fa72a864",
+    "characteristicUuid": "8b8276e8-0f0c-40bb-b422-3770fa72a864",
+    "requestFrameTemplate": [4, "volumePositionByte"],
+    "responsePattern": {},
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/command_dictionary.md", "docs/uuid_rexton_dossier_2026-03-28.md"]
+  },
+  {
+    "brand": "rexton",
+    "operation": "SetProgram",
+    "serviceUuid": "8b82105d-0f0c-40bb-b422-3770fa72a864",
+    "characteristicUuid": "8b8276e8-0f0c-40bb-b422-3770fa72a864",
+    "requestFrameTemplate": [5, "programIndexByte"],
+    "responsePattern": {},
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/command_dictionary.md", "docs/uuid_rexton_dossier_2026-03-28.md"]
+  },
+  {
+    "brand": "rexton",
+    "operation": "SetMute",
+    "serviceUuid": "c8f7a831-21b2-45b8-87f8-bd49a13eff49",
+    "requestFrameTemplate": ["advancedMutePath"],
+    "responsePattern": {},
+    "safetyClass": "fitting-risk",
+    "confidence": "partial",
+    "status": "blocked",
+    "blockReason": "Mute is routed through advanced/FAPI paths and is not runtime-verified across device families.",
+    "sourceRefs": ["docs/gaps_and_next_steps.md", "docs/command_dictionary.md"]
+  },
+  {
+    "brand": "rexton",
+    "operation": "GetBatteryState",
+    "serviceUuid": "0a23ae62-c4c2-43d1-87b1-e8c83839a063",
+    "characteristicUuid": "ebee6f69-70b6-4bb9-b13b-9ba84953c233",
+    "requestFrameTemplate": ["read"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/ble_reference.md"]
+  },
+  {
+    "brand": "rexton",
+    "operation": "GetDeviceInfo",
+    "serviceUuid": "0000180a-0000-1000-8000-00805f9b34fb",
+    "requestFrameTemplate": ["readManufacturer", "readModel", "readFirmware"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/ble_reference.md"]
+  },
+  {
+    "brand": "rexton",
+    "operation": "RefreshState",
+    "serviceUuid": "8b82105d-0f0c-40bb-b422-3770fa72a864",
+    "requestFrameTemplate": ["readProgramInfo", "readBattery"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["docs/command_dictionary.md"]
+  },
+  {
+    "brand": "resound",
+    "operation": "SetVolume",
+    "commandChannel": "1959a468-3234-4c18-9e78-8daf8d9dbf61",
+    "notifyChannel": "8b51a2ca-5bed-418b-b54b-22fe666aadd2",
+    "requestFrameTemplate": [3, "handleLowByte", "payloadBytes"],
+    "responsePattern": { "notifyEventIds": [3, 4] },
+    "safetyClass": "unresolved",
+    "confidence": "partial",
+    "status": "blocked",
+    "blockReason": "Transport is known, but operation-level handle/payload certainty is incomplete.",
+    "sourceRefs": ["docs/deep_extraction/resound_phase2_static.md", "docs/gaps_and_next_steps.md"]
+  },
+  {
+    "brand": "resound",
+    "operation": "SetProgram",
+    "commandChannel": "1959a468-3234-4c18-9e78-8daf8d9dbf61",
+    "notifyChannel": "8b51a2ca-5bed-418b-b54b-22fe666aadd2",
+    "requestFrameTemplate": [3, 8, "programByte"],
+    "responsePattern": { "notifyEventIds": [3, 4], "expectedHandles": [8] },
+    "safetyClass": "unresolved",
+    "confidence": "partial",
+    "status": "blocked",
+    "blockReason": "Program switching requires runtime-validated handle mappings across profile families.",
+    "sourceRefs": ["docs/deep_extraction/resound_phase2_static.md"]
+  },
+  {
+    "brand": "resound",
+    "operation": "SetMute",
+    "commandChannel": "1959a468-3234-4c18-9e78-8daf8d9dbf61",
+    "notifyChannel": "8b51a2ca-5bed-418b-b54b-22fe666aadd2",
+    "requestFrameTemplate": [3, 5, "programByte", "attenuationByte"],
+    "responsePattern": { "notifyEventIds": [3, 4], "expectedHandles": [5] },
+    "safetyClass": "unresolved",
+    "confidence": "partial",
+    "status": "blocked",
+    "blockReason": "Mute/unmute attenuation semantics still require runtime confirmation.",
+    "sourceRefs": ["docs/command_dictionary.md", "docs/deep_extraction/resound_phase2_static.md"]
+  },
+  {
+    "brand": "resound",
+    "operation": "GetBatteryState",
+    "serviceUuid": "0000180a-0000-1000-8000-00805f9b34fb",
+    "characteristicUuid": "24e1dff3-ae90-41bf-bfbd-2cf8df42bf87",
+    "requestFrameTemplate": ["read"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "partial",
+    "status": "partial",
+    "blockReason": "Battery channels vary by profile; treat as read-safe when discovered.",
+    "sourceRefs": ["docs/resound_uuid_reference_master_2026-03-28.md"]
+  },
+  {
+    "brand": "resound",
+    "operation": "GetDeviceInfo",
+    "serviceUuid": "0000180a-0000-1000-8000-00805f9b34fb",
+    "requestFrameTemplate": ["readManufacturer", "readModel", "readFirmware"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "partial",
+    "status": "partial",
+    "blockReason": "Device info coverage varies by profile descriptors.",
+    "sourceRefs": ["docs/resound_uuid_reference_master_2026-03-28.md"]
+  },
+  {
+    "brand": "resound",
+    "operation": "RefreshState",
+    "commandChannel": "1959a468-3234-4c18-9e78-8daf8d9dbf61",
+    "notifyChannel": "8b51a2ca-5bed-418b-b54b-22fe666aadd2",
+    "requestFrameTemplate": [4, "handleLowByte"],
+    "responsePattern": { "notifyEventIds": [3, 4, 5] },
+    "safetyClass": "state-read",
+    "confidence": "partial",
+    "status": "partial",
+    "blockReason": "Read-safe refresh is allowed, but mappings are still partial.",
+    "sourceRefs": ["docs/deep_extraction/resound_phase2_static.md"]
+  },
+  {
+    "brand": "starkey",
+    "operation": "SetVolume",
+    "serviceUuid": "9a04f079-9840-4286-ab92-e65be0885f95",
+    "requestFrameTemplate": [18, 6, 4, 0, 4, 53, "volumeByte"],
+    "responsePattern": {},
+    "safetyClass": "unresolved",
+    "confidence": "partial",
+    "status": "blocked",
+    "blockReason": "App-layer Piccolo bytes are known, but lower native wire transport remains unresolved.",
+    "sourceRefs": ["docs/command_dictionary.md", "docs/gaps_and_next_steps.md"]
+  },
+  {
+    "brand": "starkey",
+    "operation": "SetProgram",
+    "serviceUuid": "9a04f079-9840-4286-ab92-e65be0885f95",
+    "requestFrameTemplate": [18, 6, 4, 0, 4, 52, "memoryIndexByte"],
+    "responsePattern": {},
+    "safetyClass": "unresolved",
+    "confidence": "partial",
+    "status": "blocked",
+    "blockReason": "Program writes are blocked until lower transport framing/checksum rules are verified.",
+    "sourceRefs": ["docs/command_dictionary.md"]
+  },
+  {
+    "brand": "starkey",
+    "operation": "SetMute",
+    "serviceUuid": "9a04f079-9840-4286-ab92-e65be0885f95",
+    "requestFrameTemplate": [18, 6, 4, 0, 4, 58, "muteByte"],
+    "responsePattern": {},
+    "safetyClass": "unresolved",
+    "confidence": "partial",
+    "status": "blocked",
+    "blockReason": "Mute writes are blocked due to unresolved transport layer behavior.",
+    "sourceRefs": ["docs/command_dictionary.md"]
+  },
+  {
+    "brand": "starkey",
+    "operation": "GetBatteryState",
+    "serviceUuid": "48ddf118-efd0-48fc-8f44-b9b8e17be397",
+    "requestFrameTemplate": ["read"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "partial",
+    "status": "partial",
+    "blockReason": "Read-safe only where HA config battery semantics are confirmed per device.",
+    "sourceRefs": ["docs/ble_reference.md"]
+  },
+  {
+    "brand": "starkey",
+    "operation": "GetDeviceInfo",
+    "serviceUuid": "48ddf118-efd0-48fc-8f44-b9b8e17be397",
+    "requestFrameTemplate": ["read"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "partial",
+    "status": "partial",
+    "blockReason": "Read-safe metadata only; full semantics vary by model generation.",
+    "sourceRefs": ["docs/starkey_uuid_dossier_01_static_registry.md"]
+  },
+  {
+    "brand": "starkey",
+    "operation": "RefreshState",
+    "serviceUuid": "48ddf118-efd0-48fc-8f44-b9b8e17be397",
+    "requestFrameTemplate": ["readSupportFlags", "readCurrentValues"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "partial",
+    "status": "partial",
+    "blockReason": "Refresh is read-safe only while write transport is unresolved.",
+    "sourceRefs": ["docs/gaps_and_next_steps.md"]
+  }
+]

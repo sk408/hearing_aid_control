@@ -12,8 +12,9 @@ Scope: Starkey 2.1.0 static decode with Piccolo-centered control paths.
 
 Confidence model:
 - `confirmed`: byte-level framing recovered from static decode.
-- `expected`: role is clear but value schema incomplete.
-- `unknown`: channel present but behavior unresolved.
+- `partial`: role is clear but value schema incomplete.
+- `inferred`: best-effort semantic interpretation pending runtime proof.
+- `inactive-in-baseline`: channel present but not active in the baseline build.
 
 ## 2) Service inventory
 
@@ -25,7 +26,7 @@ Confidence model:
 
 ## 3) Core characteristic registry
 
-## 3.1 Piccolo channels
+### 3.1 Piccolo channels
 
 | UUID | Label | Status |
 |---|---|---|
@@ -36,7 +37,7 @@ Piccolo command framing (app layer):
 - ExecuteFeature: `[0x12, 0x06, lenPlusFlags, flags, featureHi, featureLo, arg?]`
 - GetControlState: `[0x12, 0x09, controlObjHi, controlObjLo]`
 
-## 3.2 HA config service channels
+### 3.2 HA config service channels
 
 | UUID | Label | Access | Status |
 |---|---|---|---|
@@ -44,14 +45,35 @@ Piccolo command framing (app layer):
 | `38278651-76d7-4dee-83d8-894f3fa6bb99` | Data_Source | read/notify | confirmed |
 | `26ddeaca-a73c-4b61-a1de-87c5375b2706` | Feature_Support | read | confirmed |
 
-## 3.3 HIP/SSI/auxiliary channels
+### 3.3 HIP/SSI/auxiliary channels
 
 Key IDs:
 - HIP family: `896c9932...`, `896c98ba...`, `896c9950...`, `896c990a...`, `896c96ee...`
 - SSI family: `5446e255...`, `5446e448...`, `5446fb18...`, `5446ea24...`, `5446e63c...`
 - Tinnitus config: `5446daa2...`
 - E2E channels: `0990d720...`, `a0370d1b...`
-- Assistant/GASS: `b5a0badd...`, `c43b2a46...`, `7de95c7f...`, unknown `d0b6dc42...`, `84f9e90a...`
+- Assistant/GASS: `b5a0badd...`, `c43b2a46...`, `7de95c7f...`, unresolved `d0b6dc42...`, `84f9e90a...`
+
+### Parent service attribution (static status)
+
+Evidence anchors:
+
+- `jadx_output/starkey/sources/com/starkey/connectivity/able/services/HearingInstrumentProfile.java`
+  - resolves HIP-family characteristics via `IGattKt.char(...)`.
+- `jadx_output/starkey/sources/com/starkey/connectivity/able/services/SSI.java`
+  - resolves SSI-family characteristics via `IGattKt.char(...)`.
+- `jadx_output/starkey/sources/com/starkey/device/features/smartassistant/voiceassistant/c.java`
+  - resolves GASS-family characteristics via `IGattKt.char(...)`.
+- `jadx_output/starkey/sources/com/starkey/connectivity/able/peripheral/gatt/IGattKt.java`
+  - `char(...)` scans all discovered services and returns by characteristic UUID only.
+
+Static conclusion:
+
+- HIP (`896c*`) profile ownership in code: `confirmed`.
+- SSI (`5446*`) profile ownership in code: `confirmed`.
+- GASS characteristic ownership in code: `confirmed`.
+- definitive characteristic -> parent-service UUID mapping for HIP/GASS: `partial` (not statically provable from this app because lookup is global by characteristic UUID).
+- SSI parent-service mapping: `partial` for same reason (characteristic-level lookup without direct service UUID assertions in these classes).
 
 ## 4) Confirmed user-control value semantics
 
@@ -72,10 +94,11 @@ Response semantics:
 
 - Lower transport wrapper bytes/checksum/segmentation under `SendPacketResult`.
 - Full mapping of HA config service controls to user-visible features.
-- Semantics for unknown assistant characteristics (`d0b6dc42...`, `84f9e90a...`).
+- Semantics for unresolved assistant characteristics (`d0b6dc42...`, `84f9e90a...`).
+- Definitive HIP/GASS parent-service UUID attribution from runtime service-discovery evidence.
 
 ## 6) Reminders
 
 - Preserve separation between app-layer Piccolo framing and lower transport framing.
 - Capture primary/fallback characteristic selection per device model.
-- Treat unknown auxiliary channels as read-only/diagnostic until payloads are decoded.
+- Treat unresolved auxiliary channels as read-only/diagnostic until payloads are decoded.

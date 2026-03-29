@@ -1,4 +1,4 @@
-# Philips Hearing Aid UUID Dossier 04: Missing First-Party Coverage and Unknowns
+# Philips Hearing Aid UUID Dossier 04: Missing First-Party Coverage and Unresolved Areas
 
 Date: 2026-03-28
 Scope: Identify likely missing Philips first-party UUID/characteristic coverage and define evidence-driven resolution steps.
@@ -16,17 +16,17 @@ A UUID/characteristic is considered "missing first-party coverage" when any of t
 
 ---
 
-## 2) Confirmed Unknowns (High Priority)
+## 2) Confirmed Unresolved Items (High Priority)
 
 | UUID | Current evidence | Gap | Risk |
 |---|---|---|---|
-| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | callback reads `uint8@0` into internal field | product semantic unknown | medium (status channel ambiguity) |
+| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | callback reads `uint8@0` into internal field | product semantic unresolved | medium (status channel ambiguity) |
 | `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | present in callback dispatch map | no action body in baseline build | low-medium (version-gated behavior possible) |
-| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | PRE_POLARIS marker in docs | payload schema unresolved | high for legacy compatibility |
+| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | explicit PRE_POLARIS branch in `c.i.a.a.s.c` sets characteristic availability to false | payload schema and runtime role unresolved | high for legacy compatibility |
 
 ---
 
-## 3) Potential Unknown Pools Requiring Adjudication
+## 3) Inferred Pools Requiring Adjudication
 
 ### 3.1 Candidate unlabeled set from broader references
 
@@ -55,6 +55,12 @@ Missing:
 - Full characteristic table for this service.
 - startup/read/write/notify lifecycle mapping.
 - compatibility behavior compared with POLARIS path.
+
+Static anchors now confirmed:
+
+- `DeviceCompatibility.from(...)` uses `14293049...` in PRE_POLARIS classification.
+- `c.i.a.a.q.b` includes `14293049...` in required service-set list.
+- `c.i.a.a.s.c` contains explicit PRE_POLARIS handling for `d5d0affb...`.
 
 ---
 
@@ -100,7 +106,7 @@ Primary outcome:
    - write reconciliation paths
 3. Build a UUID delta table:
    - added / removed / retained
-   - behavior changed / unchanged / unknown
+   - behavior changed / unchanged / unresolved
 
 Primary outcome:
 
@@ -111,6 +117,7 @@ Primary outcome:
 1. Isolate legacy service branch in decompiled logic.
 2. Enumerate PRE_POLARIS characteristic list and operation sequence.
 3. Map write/read/notify semantics for each legacy characteristic.
+4. Reconcile static branch behavior for `d5d0affb...` (availability false) against runtime service discovery to determine whether this is model/firmware gating, dead path, or safety disable.
 
 Primary outcome:
 
@@ -118,7 +125,7 @@ Primary outcome:
 
 ---
 
-## 6) Candidate Test Triggers for Unknown Semantics
+## 6) Candidate Test Triggers for Unresolved Semantics
 
 ### For `e24fac83...`
 
@@ -156,15 +163,15 @@ Approach:
 
 ## 7) Risk and Safety Notes
 
-- Unknown channels can include fitting-grade or safety-sensitive controls.
-- Do not send exploratory writes to unknown UUIDs on user devices.
+- Unresolved channels can include fitting-grade or safety-sensitive controls.
+- Do not send exploratory writes to unresolved UUIDs on user devices.
 - Restrict dynamic tests to passive observation plus confirmed-safe action pathways.
 
 ---
 
-## 8) Completion Criteria for "No More Documents Needed" (Unknowns Track)
+## 8) Completion Criteria for "No More Documents Needed" (Unresolved Track)
 
-This unknowns track can be considered complete when:
+This unresolved track can be considered complete when:
 
 1. every UUID in sections 2 and 3 is either behaviorally decoded or explicitly classified as inactive in baseline;
 2. PRE_POLARIS characteristic table is fully enumerated;

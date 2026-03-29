@@ -35,4 +35,4 @@ Scope: consolidated index for Rexton UUID research and follow-up.
 2. Preserve session-order invariants for programming commands (`VersionInfo` -> `StartProgramming` -> data flow -> stop sequence).
 3. Record model/firmware/app version for every runtime trace to resolve alias UUID routing.
 4. Treat `8b82` and `c8f7` families as first-party core, even when POLARIS overlap exists.
-5. Do not classify unknown channel payloads as stable API until validated in runtime traces.
+5. Do not classify unresolved channel payloads as stable API until validated in runtime traces.

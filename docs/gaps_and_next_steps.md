@@ -1,138 +1,145 @@
 # Gaps and Next Steps
 
-Status as of 2026-03-28. Documents what still needs investigation and what tools would help.
+Status as of 2026-03-28 (reconciled to current local artifacts and deep-extraction docs).
+
+This document tracks only what still needs work before implementation. Items already
+confirmed in the existing docs are not treated as blockers.
 
 ---
 
-## Current Gaps by Manufacturer
+## Reconciled Status vs Original Request
 
-### Starkey
+### 1) ReSound .NET assemblies (`asm_110/111/112`)
+- **Status:** static corpus now partially resolved; runtime validation still blocking
+- **What is already done:**
+  - managed assemblies were extracted and decompiled under `artifacts/`
+  - GN command/notify UUIDs, command opcodes, and handle protocol shape are documented
+  - `e0262760` family role mapping is documented in `docs/deep_extraction/resound_phase2_static.md`
+  - static operation corpus for `volume/program/mute/stream` now exists in:
+    - `docs/resound_operation_corpus_static_2026-03-28.md`
+- **What still blocks coding:**
+  - final per-operation request/response examples validated with runtime traces
+  - per-family handle mapping confirmation across multiple profile families
 
-| Gap | Detail |
-|-----|--------|
-| **GASS service UUID** | The Voice Assistant (GASS) service UUID is unknown — only characteristic UUIDs found. The characteristics (`b5a0badd`, `c43b2a46`, `7de95c7f`) are looked up across all services via `m38char(iGatt, uuid)`, so the parent service UUID is not visible in the lookup code. Need to inspect `Connection.java` service discovery flow or capture live GATT. |
-| **HIP service UUID** | Same issue — `HearingInstrumentProfile.java` looks up `896Cxxxx` characteristics without specifying a service UUID. |
-| **SSI service UUID** | `SSI.java` does not specify a service UUID for `5446xxxx` characteristics. |
-| **Unknown GASS chars** | `d0b6dc42` and `84f9e90a` are retrieved in the GASS constructor but results are immediately discarded (not assigned to a named field). Purpose unknown — possibly placeholders for future features or legacy compatibility probes. |
-| **Piccolo binary format** | `PiccoloCommand.java` and `PiccoloResponse.java` contain the command byte layout but the full binary protocol schema (op codes, field offsets, value encoding) has not been mapped. `PiccoloResponse.java` at 138KB has extensive message type parsing. |
-| ~~ControlObjectId full enum~~ | **RESOLVED** — Full 16-value enum extracted: Memory, MicrophoneVolume, TinnitusVolume, StreamingVolume, AccessoryStreamingVolume, BalanceVolume, StreamingState, AdaptiveTuningState, EqualizerBassState, EqualizerMiddleState, EqualizerTrebleState, NoiseReductionState, WindReductionState, StreamingEqualizerBassState, StreamingEqualizerMiddleState, StreamingEqualizerTrebleState. See `starkey.md`. |
-| **HaConfigOpCode** | `HaConfigOpCode.java` and `HAConfigID.java` contain the op-code and config-ID enums used over the GattConsolidation service. These have not been read. |
+### 2) Starkey Piccolo wire-level transport
+- **Status:** unresolved (high blocker)
+- **What is already done:**
+  - app-layer command bytes and many control object semantics are documented
+  - `HaConfigOpCode` and `HAConfigID` are now read and understood at enum/bit-packing level
+- **What still blocks coding:**
+  - native framing below app layer (`PiccoloPacketTransportFeature.SendPacketResult`) is opaque
+  - checksum/framing/retry rules on wire are not yet recovered
 
-### ReSound / GN Hearing
+### 3) Starkey HIP/SSI/GASS parent service UUIDs
+- **Status:** unresolved for HIP/GASS, partially resolved for SSI
+- **What is already done:**
+  - HIP (`896Cxxxx`) and GASS chars are located by global characteristic search
+  - SSI characteristic family is known (`5446xxxx`) and there is evidence of service-level usage in related code paths
+- **What still blocks coding:**
+  - definitive parent service UUID attribution for HIP/GASS from static code or runtime discovery capture
 
-| Gap | Detail |
-|-----|--------|
-| **All 25+ custom UUID labels** | UUID constants are in .NET assemblies (`asm_110.dll`, `asm_111.dll`, `asm_112.dll`) embedded in `dk.resound.smart3d.apk → assets/assemblies/`. The Java/DEX layer is a thin GATT bridge with no UUID string literals. Static decompilation of the Java layer cannot label these. |
-| **GN e0262760 family roles** | The 7 characteristics of the `e0262760` service family (a011, a110, a111, a112, a113, a210) are unlabeled. They are the core GN Hearing proprietary protocol. |
-| **Protocol structure** | Whether the GN proprietary protocol is binary (like Starkey's Piccolo) or structured (TLV, protobuf, etc.) is unknown without .NET decompilation or packet capture. |
+### 4) Rexton full UUID table (`8b82xxxx`, `c8f7xxxx`)
+- **Status:** static canonicalization resolved; runtime alias routing still partial
+- **What is already done:**
+  - full UUIDs and aliases are present in decompiled sources under `artifacts/decompiled/rexton_2.7.32`
+  - major channel mappings are documented in `docs/deep_extraction/rexton_phase2_static.md`
+  - canonical alias tables are now consolidated in:
+    - `docs/uuid_rexton_dossier_2026-03-28.md`
+    - `docs/rexton_uuid_dossier_01_static_registry.md`
+- **What still blocks coding:**
+  - per-model alias dispatch behavior (which alias appears on which device family) still requires runtime validation
 
-### Philips / Oticon
+### 5) Philips 7 unlabeled UUIDs (`29d9ed98`, `87749df4`, `8a1695c7`, `9188040d`, `b31b99bf`, `ee224395`, `adcf079a`)
+- **Status:** likely non-baseline/false-positive set; not currently a coding blocker
+- **What is already done:**
+  - docs indicate these are not active HA GATT channels in baseline POLARIS path
+- **What still needs validation:**
+  - runtime adjudication across additional app/device versions before final closure
 
-| Gap | Detail |
-|-----|--------|
-| **7 unlabeled POLARIS characteristics** | Found in `CharacteristicUuidProvider.java` but not appearing in any switch-case handler: `29d9ed98`, `87749df4`, `8a1695c7`, `9188040d`, `b31b99bf`, `ee224395`, `adcf079a`. Function unknown — could be newer POLARIS features, diagnostic channels, or remote fitting characteristics. Need to search for these UUIDs as write targets in `k.java` and related handler files, or use live BLE capture to observe when they're activated. |
-| **Command byte encoding** | Characteristic UUIDs and their broad functions are well-documented. The actual byte-level encoding of write payloads (e.g., volume levels, program IDs, EQ values) is not mapped. |
-| **PRE_POLARIS compatibility** | The legacy `14293049` service and `d5d0affb` characteristic used in pre-POLARIS devices have not been analyzed in depth. |
+### 6) Rexton mute opcode
+- **Status:** partially resolved (medium)
+- **What is already done:**
+  - static `BasicCommandProtocol` confirms no dedicated mute opcode in basic-control channel (`8b8276e8`)
+  - static mute/unmute writes are present via advanced/FAPI receiver-state paths
+- **What still blocks coding:**
+  - runtime validation of advanced/FAPI mute behavior across device families and firmware variants
 
-### Rexton / WS Audiology
+### 7) Philips PRE_POLARIS legacy (`14293049` service)
+- **Status:** unresolved (medium-high for compatibility)
+- **Need:** full legacy characteristic table and operation flow including `d5d0affb`
 
-| Gap | Detail |
-|-----|--------|
-| **Terminal IO full UUID table** | `8b82xxxx` family UUIDs: the 4-digit middle segment for each characteristic is represented as `...` in the docs. Full UUIDs need to be extracted from the decompiled source. |
-| **Control/FAPI service details** | Same issue for `c8f7xxxx` family. The 8 "various" characteristics noted at the bottom of the Rexton table are unstated. |
-| **FAPI protocol** | The Fitting API (FAPI) is used for remote programming. Its request/response format is unknown. |
-
----
-
-## Recommended Next Steps
-
-### 1. ReSound .NET Assembly Decompilation (Highest Priority)
-
-**Tool:** [dnSpy](https://github.com/dnSpy/dnSpy) or [ILSpy](https://github.com/icsharpcode/ILSpy)
-
-**Steps:**
-1. Extract `assets/assemblies/` from `xapk_extracted/ReSound Smart 3D_1.43.1_APKPure/dk.resound.smart3d.apk` (it's a zip)
-2. The assemblies blob may be compressed with LZ4 or XZ (Xamarin format) — use `Xamarin.Android.Tools.Bytecode` or the `decompress_assemblies` utility if needed
-3. Open `asm_110.dll` in dnSpy and locate:
-   - `CharacteristicsToUUID` class — maps enum values to UUID strings
-   - `BLEManagerData` — characteristic assignments
-   - `BLEInvoker` — shows which characteristics are written for each user action
-4. Repeat for `asm_111.dll` (GattCharacteristic, HearingAidProfileProxy) and `asm_112.dll` (BLEHearingInstrumentProvider)
-
-**Expected output:** Full labeled UUID table for all 25+ ReSound custom characteristics.
-
-### 2. Live BLE Packet Capture
-
-**Tool:** [nRF Sniffer for Bluetooth LE](https://www.nordicsemi.com/Products/Development-tools/nRF-Sniffer-for-Bluetooth-LE) + Wireshark
-
-**Setup:** nRF52840 dongle running nRF Sniffer firmware, paired with Wireshark BLE dissector.
-
-**What to capture:**
-- Initial connection and service discovery (to confirm service UUIDs for Starkey HIP/SSI/GASS)
-- Volume adjustment (to identify which characteristic carries volume writes and the byte encoding)
-- Program change (to map program characteristic + payload format)
-- ReSound app interactions (to label the `e0262760` family and custom UUIDs live)
-
-**Expected output:** Ground-truth UUID assignments and binary protocol payload formats for all manufacturers.
-
-### 3. Frida Dynamic Analysis
-
-**Tool:** [Frida](https://frida.re/) + rooted Android device or emulator with BLE passthrough
-
-**Targets:**
-- Hook `BluetoothGattCharacteristic.setValue()` and `BluetoothGatt.writeCharacteristic()` to log all write payloads with the triggering UI action
-- Hook `onCharacteristicChanged()` callbacks to capture notification payloads
-- For ReSound: hook .NET Xamarin bridge to intercept UUID → operation mapping before the Java layer
-
-**Script skeleton:**
-```javascript
-// Hook all BLE characteristic writes
-Java.perform(() => {
-  const BluetoothGatt = Java.use('android.bluetooth.BluetoothGatt');
-  BluetoothGatt.writeCharacteristic.overload(
-    'android.bluetooth.BluetoothGattCharacteristic'
-  ).implementation = function(char) {
-    console.log('[WRITE]', char.getUuid(), '->',
-      char.getValue().map(b => b.toString(16).padStart(2,'0')).join(' '));
-    return this.writeCharacteristic(char);
-  };
-});
-```
-
-**Expected output:** Complete mapping of UI action → UUID → payload bytes for all manufacturers.
-
-### 4. Starkey Piccolo Protocol Mapping
-
-**Steps:**
-1. Read `PiccoloCommand.java` — base command structure (byte array layout, header format)
-2. Read `PiccoloResponse.java` — parse all nested response type classes to map op-codes
-3. Read `ControlObjectId.java` — get the full enum (expected: 20+ control objects)
-4. Read `HaConfigOpCode.java` and `HAConfigID.java` — map HA config operations
-5. Cross-reference with `PiccoloDispatcher.java` — which methods send which command bytes
-
-**Expected output:** Piccolo binary protocol specification (op-code table, payload formats).
-
-### 5. Service UUID Discovery for Starkey HIP/SSI/GASS
-
-**Steps:**
-1. Read `Connection.java` (the full file, not just lines 595–600) to find where service discovery results are consumed and which services are enumerated
-2. Read `ProfileService.java` — likely contains the list of expected service UUIDs
-3. Search for any file that calls `getService(UUID)` with a `896Cxxxx` or `5446xxxx` UUID as the argument rather than a characteristic lookup
-
-### 6. Rexton Full UUID Extraction
-
-**Steps:**
-1. Run `grep -rn "8b82\|c8f7" jadx_output/rexton/` to find all Terminal IO and FAPI characteristic UUIDs with their full values
-2. The existing docs use `...` placeholders — replace with confirmed hex strings
+### 8) ReSound `e0262760` role mapping
+- **Status:** resolved in current baseline docs
+- **Need:** keep as verified reference, not an active blocker
 
 ---
 
-## Tool Summary
+## Updated Priority Backlog (Before Coding)
 
-| Tool | Purpose | Priority |
-|------|---------|----------|
-| dnSpy / ILSpy | ReSound .NET assembly decompilation | High |
-| nRF Sniffer + Wireshark | Live BLE packet capture | High |
-| Frida | Dynamic BLE payload hooking | Medium |
-| jadx (already used) | Static Java/Kotlin decompilation | Done |
-| dotPeek | Alternative .NET decompiler | Low (fallback to dnSpy) |
+### P0 - Blocks implementation
+
+1. **Starkey wire transport extraction**
+   - Recover framing/checksum/session behavior beneath app-layer Piccolo bytes.
+   - Target native bridge around `PiccoloPacketTransportFeature.SendPacketResult`.
+
+2. **Starkey parent service attribution (HIP/GASS, and SSI confirmation)**
+   - Produce definitive parent service UUID mapping for all three profile families.
+   - Prefer runtime service-discovery capture if static evidence remains ambiguous.
+
+3. **ReSound operation-level protocol corpus**
+   - Static templates are now documented (`operation -> command frame -> notify sequence -> parsed state`).
+   - Remaining blocker is runtime validation on at least two device profile families.
+
+4. **Rexton documentation normalization**
+   - Keep canonical alias registry synchronized across dossier docs.
+   - Add runtime-backed per-family alias dispatch table.
+
+### P1 - Important, not immediate blockers
+
+5. **Philips PRE_POLARIS deep map**
+   - Enumerate full `14293049` branch and decode `d5d0affb` behavior.
+
+6. **Rexton mute behavior confirmation**
+   - Validate advanced/FAPI mute behavior across at least two device families.
+
+7. **Philips unresolved-pool adjudication**
+   - Re-validate seven candidate UUIDs through runtime capture and version diffs.
+
+### P2 - Quality and maintenance
+
+8. **Cross-doc consistency pass**
+   - Align `command_dictionary`, vendor dossiers, and matrices to one status model:
+     `confirmed`, `partial`, `inferred`, `inactive-in-baseline`.
+
+9. **Evidence anchor hardening**
+   - Add explicit class/method anchors for each high-value claim where missing.
+
+---
+
+## Recommended Execution Order
+
+1. Starkey wire transport extraction
+2. Starkey parent service attribution
+3. ReSound operation corpus finalization
+4. Rexton UUID/table normalization
+5. Philips PRE_POLARIS mapping
+6. Remaining medium/quality tasks
+
+---
+
+## Tooling Notes
+
+- **Already sufficient in workspace:** JADX output, extracted APK/XAPK artifacts, decompiled managed assemblies.
+- **External tools still useful when needed:**
+  - nRF Sniffer + Wireshark (ground-truth runtime GATT + payloads)
+  - Frida (controlled dynamic BLE trace instrumentation)
+  - dnSpy/ILSpy (fallback/triage for any remaining managed-code blind spots)
+
+---
+
+## Implementation Handoff
+
+For build-sequence, safety gating, and a static-fixable issue list intended for a fresh
+implementation agent, use:
+
+- `docs/implementation_handoff_web_android.md`

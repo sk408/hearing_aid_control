@@ -19,7 +19,8 @@ App lineage: Philips HearLink (Oticon/Demant POLARIS + PRE_POLARIS support)
 Legend:
 - `C` = confirmed byte-level behavior in static decode
 - `P` = partial (channel and some fields known)
-- `U` = unknown or unresolved behavior
+- `I` = inferred behavior pending runtime validation
+- `X` = inactive-in-baseline behavior
 
 ### 2.1 Core control characteristics
 
@@ -59,9 +60,30 @@ Legend:
 
 | UUID | Observation | Status |
 |---|---|---|
-| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | parsed byte0 stored into internal field `r`; UX meaning unresolved | U |
-| `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | appears in switch but no action body in this app version | U |
-| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | PRE_POLARIS-only special char in compatibility path | P/U |
+| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | parsed byte0 stored into internal field `r`; UX meaning unresolved | P |
+| `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | appears in switch but no action body in this app version | X |
+| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | PRE_POLARIS-only special char in compatibility path | P |
+
+## 2.5 PRE_POLARIS (`14293049...`) static mapping
+
+Evidence anchors:
+
+- `jadx_output/philips/sources/com/oticon/blegenericmodule/ble/gatt/DeviceCompatibility.java`
+- `jadx_output/philips/sources/c/i/a/a/q/b.java`
+- `jadx_output/philips/sources/c/i/a/a/s/c.java`
+- `jadx_output/philips/sources/com/oticon/blegenericmodule/ble/gatt/CharacteristicUuidProvider.java`
+
+| Item | Static evidence | Confidence |
+|---|---|---|
+| Legacy service presence | `DeviceCompatibility.from(...)` checks `14293049-77d7-4244-ae6a-d3873e4a3184` as part of PRE_POLARIS identification. | confirmed |
+| PRE_POLARIS gating set | `c.i.a.a.q.b` includes service set requiring `14293049...` among baseline services for PRE_POLARIS classification. | confirmed |
+| `d5d0affb...` handling | `c.i.a.a.s.c` has explicit branch: if device is `PRE_POLARIS` and UUID equals `d5d0affb...`, characteristic availability is set to false in `HackInstrument`. | confirmed |
+| `d5d0affb...` payload semantics | no static read/write parser body found in current decode corpus. | partial |
+| Full `14293049...` characteristic inventory | not explicitly enumerated in current static provider maps (maps are mostly characteristic-driven/global). | partial |
+
+Static interpretation note:
+
+- Current static evidence supports service-level PRE_POLARIS detection and explicit handling of `d5d0affb...`, but does not yet provide byte-level operation semantics for that characteristic.
 
 ## 3) Expected and candidate value domains
 

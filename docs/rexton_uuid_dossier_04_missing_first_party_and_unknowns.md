@@ -1,9 +1,9 @@
-# Rexton Hearing Aid UUID Dossier 04: Missing First-Party Coverage and Unknowns
+# Rexton Hearing Aid UUID Dossier 04: Missing First-Party Coverage and Unresolved Areas
 
 Date: 2026-03-28  
 Scope: unresolved Rexton UUID semantics and likely missing first-party coverage.
 
-## 1) High-priority unknowns
+## 1) High-priority unresolved areas
 
 | Area | UUID(s) | Gap |
 |---|---|---|
@@ -36,7 +36,7 @@ Scope: unresolved Rexton UUID semantics and likely missing first-party coverage.
 
 ## 5) Completion criteria
 
-Mark unknowns closed when:
+Mark unresolved items closed when:
 - each major user control has a validated TX/RX trace on at least one current-generation Rexton device,
 - alias selection is mapped for at least two distinct device families,
 - FAPI transport is documented with at least a minimal decoded request/response exemplar set.

@@ -16,7 +16,7 @@ Platform note: hybrid of shared POLARIS channels plus WSA-specific `8b82` and `c
 
 ## 2) Characteristic map and value formats
 
-## 2.1 Shared Hi/POLARIS characteristics
+### 2.1 Shared Hi/POLARIS characteristics
 
 | UUID | Role | Status |
 |---|---|---|
@@ -27,18 +27,18 @@ Platform note: hybrid of shared POLARIS channels plus WSA-specific `8b82` and `c
 | `d28617fe-0ad5-40c5-a04a-bc89051ff755` | Ear side | partial |
 | `bdf8a334-1c7b-46e9-b4c2-800b8966136b` | Identifiers | partial |
 
-## 2.2 Terminal IO (`8b82xxxx`) channels
+### 2.2 Terminal IO (`8b82xxxx`) channels
 
 | UUID | Label | Value semantics | Status |
 |---|---|---|---|
-| `8b822409-...-3770fa72a864` | Data RX | write raw bytes to device | partial |
-| `8b82b999-...-3770fa72a864` | Data TX | notification raw bytes from device | partial |
-| `8b82cd2d-...-3770fa72a864` | Protocol Choice | protocol variant selector enum | partial |
-| `8b82a76f-...-3770fa72a864` | Ready for RX | readiness flag byte | partial |
-| `8b82f3b9-...-3770fa72a864` | Ready for TX | readiness/data-available flag byte | partial |
-| `8b8225e0-...-3770fa72a864` | Active Program Info | notification payload with active program info | partial |
-| `8b8276e8-...-3770fa72a864` | Basic Control Command | opcode-based writes for user controls | confirmed |
-| `8b823656-...-3770fa72a864` | Configuration Check | config state check/trigger | partial |
+| `8b822409-0f0c-40bb-b422-3770fa72a864` | Data RX | write raw bytes to device | partial |
+| `8b82b999-0f0c-40bb-b422-3770fa72a864` | Data TX | notification raw bytes from device | partial |
+| `8b82cd2d-0f0c-40bb-b422-3770fa72a864` | Protocol Choice | protocol variant selector enum | partial |
+| `8b82a76f-0f0c-40bb-b422-3770fa72a864` | Ready for RX | readiness flag byte | partial |
+| `8b82f3b9-0f0c-40bb-b422-3770fa72a864` | Ready for TX | readiness/data-available flag byte | partial |
+| `8b8225e0-0f0c-40bb-b422-3770fa72a864` | Active Program Info | notification payload with active program info | partial |
+| `8b8276e8-0f0c-40bb-b422-3770fa72a864` | Basic Control Command | opcode-based writes for user controls | confirmed |
+| `8b823656-0f0c-40bb-b422-3770fa72a864` | Configuration Check | config state check/trigger | partial |
 
 ### Basic Control Command (`8b8276e8...`) confirmed opcodes
 
@@ -51,6 +51,27 @@ Platform note: hybrid of shared POLARIS channels plus WSA-specific `8b82` and `c
 | `0x08` | CROS volume set | `[0x08, cros]` |
 | `0x09` | TV streamer volume set | `[0x09, (15 - slider)]` |
 
+### Canonical alias mapping from managed registry
+
+Source anchor:
+
+- `artifacts/decompiled/rexton_2.7.32/WSA.Foundation.Bluetooth/WSA.Foundation.Bluetooth.decompiled.cs`
+  - `WSA.Foundation.Bluetooth.GattServices.HiService.BasicControlCommand`
+  - `WSA.Foundation.Bluetooth.GattServices.HiService.ActiveProgramInfo`
+  - `WSA.Foundation.Bluetooth.GattServices.ProgrammingService.*`
+  - `WSA.Foundation.Bluetooth.GattServices.FapiService.*`
+
+| Logical channel | Canonical UUID | Known aliases in static registry |
+|---|---|---|
+| Basic Control Command | `8b8276e8-0f0c-40bb-b422-3770fa72a864` | `c8f747ac-21b2-45b8-87f8-bd49a13eff49`, `22e01397-43cb-45b6-a921-b28271e4e989` |
+| Active Program Info | `8b8225e0-0f0c-40bb-b422-3770fa72a864` | `c8f7fac0-21b2-45b8-87f8-bd49a13eff49`, `c8f7a5ab-21b2-45b8-87f8-bd49a13eff49`, `c8f79346-21b2-45b8-87f8-bd49a13eff49`, `c8f7ac86-21b2-45b8-87f8-bd49a13eff49`, `6eabf749-7729-41fb-9001-bba9677018f8`, `f9252eea-7236-4cc4-a9e0-bd72724dc7d6`, `7e19ff52-6fa0-4d16-b746-fc40821f3715`, `6ead405e-9301-4231-86af-7ad94ef090ef` |
+| Control Request | `c8f75466-21b2-45b8-87f8-bd49a13eff49` | `c8f79c9a-21b2-45b8-87f8-bd49a13eff49` |
+| Control Response | `c8f70447-21b2-45b8-87f8-bd49a13eff49` | `c8f73dc3-21b2-45b8-87f8-bd49a13eff49` |
+| Data Request | `c8f72804-21b2-45b8-87f8-bd49a13eff49` | `c8f7a8e4-21b2-45b8-87f8-bd49a13eff49` |
+| Data Response | `c8f72fef-21b2-45b8-87f8-bd49a13eff49` | `c8f7a68a-21b2-45b8-87f8-bd49a13eff49` |
+| FAPI Request | `c8f723da-21b2-45b8-87f8-bd49a13eff49` | none in this static build |
+| FAPI Response | `c8f7690c-21b2-45b8-87f8-bd49a13eff49` | none in this static build |
+
 ### OBLE fallback stream-volume write (legacy path)
 
 - Used when basic-control info version < 3 and OBLE is supported.
@@ -58,16 +79,16 @@ Platform note: hybrid of shared POLARIS channels plus WSA-specific `8b82` and `c
   - nonzero slider: `[(slider - 1), 0x01]`
   - zero slider: `[0x00, 0x00]`
 
-## 2.3 Programming control/data channels (`c8f7xxxx`)
+### 2.3 Programming control/data channels (`c8f7xxxx`)
 
 | UUID | Role | Status |
 |---|---|---|
-| `c8f75466-...-bd49a13eff49` | Control Request | confirmed |
-| `c8f70447-...-bd49a13eff49` | Control Response | confirmed |
-| `c8f72804-...-bd49a13eff49` | Data Request | confirmed |
-| `c8f72fef-...-bd49a13eff49` | Data Response | confirmed |
-| `c8f723da-...-bd49a13eff49` | FAPI Request | confirmed |
-| `c8f7690c-...-bd49a13eff49` | FAPI Response | confirmed |
+| `c8f75466-21b2-45b8-87f8-bd49a13eff49` | Control Request | confirmed |
+| `c8f70447-21b2-45b8-87f8-bd49a13eff49` | Control Response | confirmed |
+| `c8f72804-21b2-45b8-87f8-bd49a13eff49` | Data Request | confirmed |
+| `c8f72fef-21b2-45b8-87f8-bd49a13eff49` | Data Response | confirmed |
+| `c8f723da-21b2-45b8-87f8-bd49a13eff49` | FAPI Request | confirmed |
+| `c8f7690c-21b2-45b8-87f8-bd49a13eff49` | FAPI Response | confirmed |
 
 ### Control Request command IDs and expected values
 
@@ -101,11 +122,21 @@ Known error code values:
 - `7`: InternalError
 - `255`: InvalidCommandId
 
-## 3) Unknowns and unresolved UUIDs
+## 3) Unresolved UUIDs and remaining gaps
 
-- Several alternates in `8b82` and `c8f7` families are clearly generation aliases, but per-model dispatch rules are not fully pinned down.
+- Per-model dispatch rules among canonical UUIDs and aliases are not fully pinned down.
 - Internal FAPI payload schema remains externalized behind serializer layers; transport UUIDs are known but many feature payloads are opaque.
-- Full mute/unmute dedicated opcode in basic-control surface remains not explicitly singled out in current static pass.
+- Basic-control mute opcode is not present in static `BasicCommandProtocol`; mute path is routed through advanced/FAPI receiver-state flows.
+
+### Mute decision (static conclusion)
+
+- No dedicated mute opcode is present in Basic Control (`[opcode,arg]`) methods.
+- Static write paths show:
+  - Basic control for volume/program/sound balance/tinnitus/CROS/TV volume only.
+  - receiver mute/unmute routed via `AdvanceControlCommand` classifier `11` and/or FAPI command protocols.
+- Implementation recommendation:
+  - for a basic-control-only adapter, represent direct mute as `blocked` unless advanced/FAPI path is enabled;
+  - do not silently emulate mute with volume-minimum in Rexton baseline.
 
 ## 4) Potentially missing first-party UUIDs/characteristics
 

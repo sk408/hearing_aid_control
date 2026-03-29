@@ -51,8 +51,8 @@ A UUID/characteristic is considered potentially missing when at least one is tru
 - Transport wrapper below app-level Piccolo commands may encode additional protocol identifiers/checksums.
 
 ### Known unresolved characteristics
-- `d0b6dc42-03c8-457a-a347-ade8d1c4e98d` (GASS unknown)
-- `84f9e90a-884a-4bb3-85f2-e77399189874` (GASS unknown)
+- `d0b6dc42-03c8-457a-a347-ade8d1c4e98d` (GASS unresolved)
+- `84f9e90a-884a-4bb3-85f2-e77399189874` (GASS unresolved)
 
 ## 3) Unresolved value domains (cross-vendor)
 
@@ -104,7 +104,7 @@ Priority order:
 
 ## 8) Reminders for future reference
 
-- Keep every UUID entry tagged with confidence (`confirmed`, `partial`, `unknown`).
+- Keep every UUID entry tagged with confidence (`confirmed`, `partial`, `inferred`, `inactive-in-baseline`).
 - Do not collapse handle-based protocols into static UUID-only models.
 - Maintain per-vendor separation even where UUIDs overlap (`POLARIS` family), because value semantics can diverge.
 - Preserve a changelog per app version so UUID additions/removals are traceable.

@@ -5,7 +5,8 @@ Scope: Philips HearLink, ReSound Smart 3D, Rexton, Starkey
 Status model:
 - `confirmed`: explicitly recovered from static code/decompilation and/or extraction docs
 - `partial`: UUID identity is known but behavior/payload is incomplete
-- `unknown`: UUID seen, behavior not yet decoded
+- `inferred`: behavior guessed from naming/context only
+- `inactive-in-baseline`: UUID appears in references but is not active on baseline control path
 
 ## 1) Vendor support matrix (services)
 
@@ -77,7 +78,7 @@ Status model:
   - `0x043A` mute
   - `0x043D` accessory stream start/stop
 
-## 4) Unknown or unresolved UUID semantics (high-value)
+## 4) Unresolved UUID semantics (high-value)
 
 | Vendor | UUID | Current state |
 |---|---|---|
@@ -100,8 +101,10 @@ Status model:
 - `docs/deep_extraction/resound_phase2_static.md`
 - `docs/deep_extraction/rexton_phase2_static.md`
 - `docs/deep_extraction/starkey_phase2_static.md`
+- `docs/deep_extraction/starkey_phase3_transport_static.md`
 - `docs/ble_reference.md`
 - `docs/command_dictionary.md`
+- `docs/resound_operation_corpus_static_2026-03-28.md`
 - `docs/philips_hearlink.md`
 - `docs/rexton.md`
 - `docs/resound.md`
@@ -131,4 +134,4 @@ Status model:
 
 - Treat all fitting/programming paths (`FAPI`, programming channels, firmware endpoints) as high risk and out of normal user-control scope.
 - Keep operation mapping separate from transport mapping; transport may be confirmed while operation payloads remain partial.
-- For unknown UUIDs, prioritize runtime capture with trigger-based tests over more static decompile passes.
+- For unresolved UUIDs, prioritize runtime capture with trigger-based tests over more static decompile passes.

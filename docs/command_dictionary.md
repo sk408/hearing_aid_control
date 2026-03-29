@@ -8,6 +8,7 @@ It is intended as an implementation aid and includes confidence markers.
 - `confirmed`: explicit value format known
 - `partial`: operation-channel mapping is known, bytes still incomplete
 - `inferred`: guess from naming/context only
+- `inactive-in-baseline`: present in references but not active on baseline control path
 
 ## Volume
 
@@ -38,6 +39,10 @@ It is intended as an implementation aid and includes confidence markers.
   - Primary command UUID: `1959A468-3234-4C18-9E78-8DAF8D9DBF61` (GNCommand)
   - Primary notify UUID: `8B51A2CA-5BED-418B-B54B-22FE666AADD2` (GNNotify)
   - Command interface uses opcode-based handle protocol, not single static volume UUID writes.
+  - Static operation template (mic attenuation path):
+    - `[0x03, 0x05, currentProgram, attenuation]`
+  - Expected notify decode:
+    - `0x03/0x04` tuple payloads `[handle, len, valueBytes...]` including handle `0x05`.
   - Confidence: `partial`
 
 ## Program switch
@@ -75,7 +80,10 @@ It is intended as an implementation aid and includes confidence markers.
 - **ReSound GN proprietary:**
   - `e026...` family roles are primarily control/status/firmware endpoints in this build.
   - Program switching appears to be mediated via GN command/notify handle protocol.
-  - Byte schema is still being decoded from handle-based frames.
+  - Static operation template:
+    - `[0x03, 0x08, programIndex]` (`GNCurrentActiveProgram` handle example).
+  - Expected notify decode:
+    - `0x03/0x04` tuples containing handle `0x08`.
   - Confidence: `partial`
 
 ## Mute/unmute
@@ -95,13 +103,17 @@ It is intended as an implementation aid and includes confidence markers.
     - sound balance: `[0x06, value]`
     - tinnitus volume: `[0x07, value]`
     - CROS volume: `[0x08, value]`
-  - Mute/unmute opcode remains unresolved in this pass.
+  - No dedicated mute/unmute opcode is present in static Basic Control mapping.
+  - Mute control is routed via advanced/FAPI receiver-state paths in current static evidence.
   - Confidence: `partial`
 
 - **Starkey and ReSound proprietary mute path:**
   - Starkey app-layer request bytes (ExecuteFeature SetMute):
     - `[0x12, 0x06, 0x04, 0x00, 0x04, 0x3A, muteByte]`
   - ReSound channel known, payload body still unresolved per operation.
+  - ReSound static mute candidate on mic attenuation handle:
+    - mute: `[0x03, 0x05, currentProgram, 0x00]`
+    - unmute: `[0x03, 0x05, currentProgram, attenuationNonZero]`
   - Confidence: `partial`
 
 ## Stream control
@@ -121,6 +133,9 @@ It is intended as an implementation aid and includes confidence markers.
     - read handle: `[0x04, handleLow]`
     - read blob: `[0x05, handleLow, 0x00, 0x00]`
     - discover: `[0x06]`
+  - Static stream operation templates:
+    - stream attenuation write: `[0x03, 0x06, currentProgram, attenuation]`
+    - stream status read: `[0x04, 0x15]`
   - Confidence: `partial`
 
 - **Starkey Piccolo stream control (accessory stream):**
@@ -146,8 +161,8 @@ It is intended as an implementation aid and includes confidence markers.
 ## Programming/control transport
 
 - **Rexton Programming Service control channel (`Control Request/Response`):**
-  - Request UUID: `c8f75466-21b2-45b8-87f8-bd49a13eff49` (alt `c8f79c9a-...`)
-  - Response UUID: `c8f70447-21b2-45b8-87f8-bd49a13eff49` (alt `c8f73dc3-...`)
+  - Request UUID: `c8f75466-21b2-45b8-87f8-bd49a13eff49` (alt `c8f79c9a-21b2-45b8-87f8-bd49a13eff49`)
+  - Response UUID: `c8f70447-21b2-45b8-87f8-bd49a13eff49` (alt `c8f73dc3-21b2-45b8-87f8-bd49a13eff49`)
   - Request frame: `[commandId, payload...]`
   - Confirmed command IDs:
     - `0x00` start programming
@@ -166,8 +181,8 @@ It is intended as an implementation aid and includes confidence markers.
   - Confidence: `confirmed`
 
 - **Rexton Programming Service data channel (`Data Request/Response`):**
-  - Request UUID: `c8f72804-21b2-45b8-87f8-bd49a13eff49` (alt `c8f7a8e4-...`)
-  - Response UUID: `c8f72fef-21b2-45b8-87f8-bd49a13eff49` (alt `c8f7a68a-...`)
+  - Request UUID: `c8f72804-21b2-45b8-87f8-bd49a13eff49` (alt `c8f7a8e4-21b2-45b8-87f8-bd49a13eff49`)
+  - Response UUID: `c8f72fef-21b2-45b8-87f8-bd49a13eff49` (alt `c8f7a68a-21b2-45b8-87f8-bd49a13eff49`)
   - Transport behavior:
     - app chunks requests larger than BLE package size
     - app reassembles notifications until expected response length
@@ -176,7 +191,7 @@ It is intended as an implementation aid and includes confidence markers.
 ## Next dictionary upgrades
 
 1. Map Starkey app-layer bytes to native transport-on-wire framing below `SendPacketResult`.
-2. Resolve Rexton mute/unmute command bytes (or confirm volume-minimum emulation path).
-3. Add per-operation request and response example hex frames.
+2. Validate Rexton advanced/FAPI mute behavior across device families.
+3. Expand ReSound templates to profile-family-specific handle maps (Dooku/Palpatine/etc).
 4. Add source anchors for each entry once extracted from specific class/method paths.
 

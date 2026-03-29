@@ -130,20 +130,20 @@ Status: **partially decoded** in static evidence, still requires dynamic plainte
 | `32C9322D-6B17-11CF-0234-6F0DA5EAFD75` | `GNMicAttenuation` | R/W/N | 1 or 2 | known enum + profile-size variant | 8 profile files |
 | `054E99C7-FF34-1C12-59CD-E2C20D2E6743` | `GNStreamAttenuation` | R/W/N | 1 or 2 | known enum + profile-size variant | 8 profile files |
 | `A93E1C00-45FE-4ACB-A5B0-0E9F8751AB64` | `GNAttenuationDefaults` | R/-/N | 2 | known struct | 8 profile files |
-| `DC82F820-63AC-F82F-1E89-372FDE4151F4` | `GNCurrentActiveProgram` | R/W/N | 1 | unknown payload semantics | 8 profile files |
-| `9C21DF09-E38C-333D-5783-E9C13C9324A9` | `GNStreamStatus` | R/-/N | 2 | unknown | 8 profile files |
-| `E374ABCA-ACEC-412E-90BC-5D70E48DD664` | `GNStreamType` | R/-/N | 1 | unknown | 6 profile files |
-| `8D552F91-15D0-4628-A03F-1A64FC88FA51` | `GNHiState` | R/-/N | 1 | unknown | 5 profile files |
-| `4E8CBF8C-C1FC-423F-B920-96437F358346` | `GNAllVolumes` | R/-/- | 1 | unknown | 5 profile files |
-| `4E8CBF8C-C1FC-423F-B920-96437F398346` | `GNPushButton` | R/-/N | 1 | unknown | 5 profile files |
-| `650C3A00-CB6D-467D-A20B-3544F189D8AF` | `GNFeatureSupport` | R/-/N | 4 | unknown bitfield | 5 profile files |
-| `4449301B-A5DD-4967-99DC-A051F71AC801` | `GNAccelerometerTapConfig` | R/W/N | 2 | unknown | Dooku3 + Dooku3_1_1 |
-| `B4923AC8-4E3D-41DB-925F-0FA33D49337A` | `GNCurrentActiveStreamProgram` | R/-/N | 1 | unknown | Dooku3 + Dooku3_1_1 |
-| `0F3FD4DD-B0A9-465D-BC36-5DD182AD8FC5` | `GNAutomaticStreaming` | R/W/- | 1 | unknown | Dooku3 + Dooku3_1_1 |
-| `246540C2-92A9-4E81-ACBC-0CA154DB606E` | `GNAuracastControlPoint` | -/W/N | 2 | unknown | Dooku3 + Dooku3_1_1 |
-| `F47AC10B-58CC-4372-A567-0E02B2C3D479` | `GNStartFittingAuthenticationWindow` | R/W/- | 2 | unknown | Dooku3 + Dooku3_1_1 |
+| `DC82F820-63AC-F82F-1E89-372FDE4151F4` | `GNCurrentActiveProgram` | R/W/N | 1 | partial payload semantics | 8 profile files |
+| `9C21DF09-E38C-333D-5783-E9C13C9324A9` | `GNStreamStatus` | R/-/N | 2 | partial | 8 profile files |
+| `E374ABCA-ACEC-412E-90BC-5D70E48DD664` | `GNStreamType` | R/-/N | 1 | partial | 6 profile files |
+| `8D552F91-15D0-4628-A03F-1A64FC88FA51` | `GNHiState` | R/-/N | 1 | partial | 5 profile files |
+| `4E8CBF8C-C1FC-423F-B920-96437F358346` | `GNAllVolumes` | R/-/- | 1 | partial | 5 profile files |
+| `4E8CBF8C-C1FC-423F-B920-96437F398346` | `GNPushButton` | R/-/N | 1 | partial | 5 profile files |
+| `650C3A00-CB6D-467D-A20B-3544F189D8AF` | `GNFeatureSupport` | R/-/N | 4 | partial bitfield | 5 profile files |
+| `4449301B-A5DD-4967-99DC-A051F71AC801` | `GNAccelerometerTapConfig` | R/W/N | 2 | partial | Dooku3 + Dooku3_1_1 |
+| `B4923AC8-4E3D-41DB-925F-0FA33D49337A` | `GNCurrentActiveStreamProgram` | R/-/N | 1 | partial | Dooku3 + Dooku3_1_1 |
+| `0F3FD4DD-B0A9-465D-BC36-5DD182AD8FC5` | `GNAutomaticStreaming` | R/W/- | 1 | partial | Dooku3 + Dooku3_1_1 |
+| `246540C2-92A9-4E81-ACBC-0CA154DB606E` | `GNAuracastControlPoint` | -/W/N | 2 | partial | Dooku3 + Dooku3_1_1 |
+| `F47AC10B-58CC-4372-A567-0E02B2C3D479` | `GNStartFittingAuthenticationWindow` | R/W/- | 2 | partial | Dooku3 + Dooku3_1_1 |
 | `ADCC76C3-7D42-4DCB-8024-1EE782D51DE8` | `GNDebugInfo` / `LolaRPTCommand` | R/W/- or R/W/N | 0 or 4 | context-dependent | multi-profile + Lola |
-| `9062FD9D-153C-487F-ACB8-6A5FE8AABCEF` | `GNGainData` | R/W/N | 12000 | unknown large blob | 8 profile files |
+| `9062FD9D-153C-487F-ACB8-6A5FE8AABCEF` | `GNGainData` | R/W/N | 12000 | partial large blob | 8 profile files |
 
 ## Mystique-Only or Limited-Presence UUIDs (Potentially Newer/Experimental)
 
@@ -190,7 +190,7 @@ These appear to be first-party protocol surfaces that are **not fully represente
   - stream attenuation up/down/mute
   - automatic streaming toggles
   - auracast control point writes
-- Validate every `unknown` UUID above into one of:
+- Validate every `partial` UUID above into one of:
   - enum table
   - packed bitfield spec
   - structure schema (fixed or variable)

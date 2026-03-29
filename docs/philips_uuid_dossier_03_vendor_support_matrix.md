@@ -23,7 +23,7 @@ Scope: Philips-relevant UUIDs and characteristics, mapped across Philips, Rexton
 | `0000180a-0000-1000-8000-00805f9b34fb` | confirmed | confirmed | confirmed | partial | Standard DIS. |
 | `0000180f-0000-1000-8000-00805f9b34fb` | confirmed | confirmed | partial | partial | Battery service visibility differs by stack. |
 | `7d74f4bd-c74a-4431-862c-cce884371592` | confirmed | partial | confirmed | none | MFi path presence in Philips/ReSound docs. |
-| `0000fdf0-0000-1000-8000-00805f9b34fb` | expected | partial | confirmed | none | ASHA service support is stack-dependent in docs. |
+| `0000fdf0-0000-1000-8000-00805f9b34fb` | partial | partial | confirmed | none | ASHA service support is stack-dependent in docs. |
 
 ---
 
@@ -57,9 +57,9 @@ Scope: Philips-relevant UUIDs and characteristics, mapped across Philips, Rexton
 | `6e557876-ccc4-40e0-8c2d-651542c5ad3d` | confirmed | none | none | none | soundscape/environment |
 | `786ff607-774d-49d6-80a5-a17e08823d91` | confirmed | none | none | none | bonded stream activation |
 | `bc6829c4-b750-48e6-b6f4-48ec866a1efb` | confirmed | none | none | none | uptime/session counters |
-| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | unknown | none | none | none | one-byte unresolved status |
-| `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | unknown | none | none | none | no-op in this build |
-| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | unknown (legacy) | none | none | none | PRE_POLARIS-only marker |
+| `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | partial | none | none | none | one-byte unresolved status |
+| `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | inactive-in-baseline | none | none | none | no-op in this build |
+| `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | partial (legacy) | none | none | none | PRE_POLARIS-only marker |
 
 ---
 
@@ -94,7 +94,7 @@ These are likely available when ASHA path is active, but current Philips app-lay
 
 Vendor support snapshot:
 
-- Philips: expected
+- Philips: partial
 - ReSound: confirmed/partial (vendor docs show ASHA usage)
 - Rexton: partial
 - Starkey: no evidence in current corpus
@@ -116,8 +116,8 @@ Vendor support snapshot:
 For Philips-focused control tooling, use this order of trust:
 
 1. Philips `confirmed` rows in this dossier.
-2. Philips `expected` rows after runtime verification.
+2. Philips `partial` rows after runtime verification.
 3. Philips `partial` rows only in exploratory/diagnostic mode.
 
-Never treat `unknown` or `partial` channels as safe user-control endpoints without bounded test validation.
+Never treat `partial`, `inferred`, or `inactive-in-baseline` channels as safe user-control endpoints without bounded test validation.
 

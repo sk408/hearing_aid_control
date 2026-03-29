@@ -40,7 +40,7 @@ Legend:
 - `TX` = expected write payload
 - `RX` = expected callback payload
 - `wrType=1` write with response, `wrType=2` write without response
-- `status`: `confirmed` (static decode), `expected` (high-confidence runtime expectation), `unknown` (not resolved)
+- `status`: `confirmed` (static decode), `partial` (high-confidence expectation pending runtime proof), `inferred` (best-effort semantic guess), `inactive-in-baseline` (dormant/no-op in baseline build)
 
 | Action | Primary TX UUID | TX bytes (expected/recovered) | wrType | Primary RX UUID(s) | RX parse expectation | Convergence rule | Status |
 |---|---|---|---|---|---|---|---|
@@ -55,16 +55,16 @@ Legend:
 | Seed available programs | (read path) `dcbe7a3e-a742-4527-aeb5-cd8dee63167f` | n/a | n/a | `dcbe7a3e...` | bitset -> queue of candidate ids + sentinel 255 | drives metadata loop | confirmed |
 | Program-list handshake step | `68bfa64e-3209-4172-b117-f7eafce17414` | `[(byte)queueHeadOrSentinel]` | expected 2 | `68bfa64e...` | byte0==255 as ready gate condition | continue loop until completion | confirmed |
 | Read per-program metadata | (read path) `bba1c7f1-b445-4657-90c3-8dbd97361a0c` | n/a | n/a | `bba1c7f1...` | byte0 category, byte1 nameLen, name bytes, next byte flags | append/update program map | confirmed |
-| Write EQ gains (mode A) | `60415e72-c345-417a-bb2b-bbba95b2c9a3` | 16-byte frame with gain bytes in positions 8..15 | expected 2 | `60415e72...` or derived state chars | app-level semantic feedback not fully mapped | validate with UX-triggered trace | expected |
-| Write EQ gains (mode B) | `60415e72...` | raw byte array from int[] | expected 2 | `60415e72...` or related | payload accepted/echo behavior unresolved | runtime verify | expected |
-| Set soundscape/env value | `6e557876-ccc4-40e0-8c2d-651542c5ad3d` | `[0, value(0..255)]` | expected 2 | `6e557876...` / related state | exact UX semantic pending | runtime verify | expected |
+| Write EQ gains (mode A) | `60415e72-c345-417a-bb2b-bbba95b2c9a3` | 16-byte frame with gain bytes in positions 8..15 | expected 2 | `60415e72...` or derived state chars | app-level semantic feedback not fully mapped | validate with UX-triggered trace | partial |
+| Write EQ gains (mode B) | `60415e72...` | raw byte array from int[] | expected 2 | `60415e72...` or related | payload accepted/echo behavior unresolved | runtime verify | partial |
+| Set soundscape/env value | `6e557876-ccc4-40e0-8c2d-651542c5ad3d` | `[0, value(0..255)]` | expected 2 | `6e557876...` / related state | exact UX semantic pending | runtime verify | partial |
 | Request bonded list reset | `6efab52e-3002-4764-9430-016cef4dfc87` | `[1,0]` | expected 2 | `34dfc7cb-5252-430b-ba6d-df2fe87914e7` | entry/remove/end marker records | wait for end marker | confirmed |
 | Select bonded slot | `6efab52e...` | `[2,slotId]` | expected 2 | `34dfc7cb...` / state callbacks | slot context updates | validate per slot | confirmed |
 | Activate streaming device | `786ff607-774d-49d6-80a5-a17e08823d91` | `[0x10,addr0,addr1,addr2,addr3,addr4,addr5,slotId]` | 1 | `d01ab591...` + app state callbacks | streaming source/state transitions | verify start/stop transitions | confirmed |
 | Read streaming status | (read path) `d01ab591-d282-4ef5-b83b-538e0bf32d85` | n/a | n/a | `d01ab591...` | byte0 state, byte1 source fields (+ optional ids) | consume into stream UI state | confirmed |
 | Read uptime/session counters | (read path) `bc6829c4-b750-48e6-b6f4-48ec866a1efb` | n/a | n/a | `bc6829c4...` | optional int32 counters | informational | confirmed |
-| Observe unresolved status byte | (read/notify path) `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | n/a | n/a | `e24fac83...` | byte0 stored internally as `r` | semantic unknown; test triggers required | unknown |
-| Observe dormant branch | `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | unknown | unknown | `268c4933...` | no-op in this build | check in other app versions | unknown |
+| Observe unresolved status byte | (read/notify path) `e24fac83-b5a8-4b9b-8fda-803fffb0c21c` | n/a | n/a | `e24fac83...` | byte0 stored internally as `r` | semantic unresolved; trigger-based runtime validation required | partial |
+| Observe dormant branch | `268c4933-d2ed-4b09-b1da-cf5fd8e3a8a3` | n/a | n/a | `268c4933...` | no-op in this build | check in other app versions | inactive-in-baseline |
 
 ---
 

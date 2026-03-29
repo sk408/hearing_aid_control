@@ -27,5 +27,5 @@ This folder is the active workspace for per-vendor deep extraction.
 
 - At least one operation has confirmed request bytes.
 - All four operations have explicit routes and confidence tags.
-- Unknowns are reduced with exact next-file targets.
+- Unresolved items are reduced with exact next-file targets.
 

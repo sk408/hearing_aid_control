@@ -87,19 +87,21 @@
 | `786ff607-774d-49d6-80a5-a17e08823d91` | Bonded Streaming | Write |
 | `d5d0affb-35b8-4fdc-a50b-f777c90293b8` | PRE_POLARIS only | R/W |
 
-### Unlabeled Characteristics (from `CharacteristicUuidProvider.java`)
+### Candidate Characteristics (needs runtime/version validation)
 
-Found in the POLARIS provider; switch-case handler not yet mapped. Function unknown.
+Listed in broader references as Philips candidates, but current baseline deep decode
+suggests these may be inactive or non-HA codepath values. Treat as `inferred`
+until runtime captures or version diffs confirm active BLE use.
 
 | UUID | Function | Type |
 |------|----------|------|
-| `29d9ed98-a469-4536-ade2-f981bc1d605e` | Unknown | — |
-| `87749df4-7ccf-48f8-aa87-704bad0e0e16` | Unknown | — |
-| `8a1695c7-5c40-4b42-8965-d97076e22b8d` | Unknown | — |
-| `9188040d-6c67-4c5b-b112-36a304b66dad` | Unknown | — |
-| `b31b99bf-5257-41d3-86df-ad84b30aea8e` | Unknown | — |
-| `ee224395-69b5-4622-8645-ff2566532795` | Unknown | — |
-| `adcf079a-bf94-4c4c-97e7-afef5aa06b38` | Unknown | — |
+| `29d9ed98-a469-4536-ade2-f981bc1d605e` | inferred (inactive in baseline) | — |
+| `87749df4-7ccf-48f8-aa87-704bad0e0e16` | inferred (inactive in baseline) | — |
+| `8a1695c7-5c40-4b42-8965-d97076e22b8d` | inferred (inactive in baseline) | — |
+| `9188040d-6c67-4c5b-b112-36a304b66dad` | inferred (inactive in baseline) | — |
+| `b31b99bf-5257-41d3-86df-ad84b30aea8e` | inferred (inactive in baseline) | — |
+| `ee224395-69b5-4622-8645-ff2566532795` | inferred (inactive in baseline) | — |
+| `adcf079a-bf94-4c4c-97e7-afef5aa06b38` | inferred (inactive in baseline) | — |
 
 ---
 
@@ -158,8 +160,8 @@ Found in the POLARIS provider; switch-case handler not yet mapped. Function unkn
 | `b5a0badd-7739-4712-8804-a60a0ed9bdec` | Status Point | Notify |
 | `c43b2a46-e802-4ea4-81b1-97987cd33b1c` | Control Point | Write/Notify |
 | `7de95c7f-12de-40a9-b77c-6712da671217` | Audio Source Enable | Notify |
-| `d0b6dc42-03c8-457a-a347-ade8d1c4e98d` | Unknown GASS char | — |
-| `84f9e90a-884a-4bb3-85f2-e77399189874` | Unknown GASS char | — |
+| `d0b6dc42-03c8-457a-a347-ade8d1c4e98d` | Unresolved GASS char | — |
+| `84f9e90a-884a-4bb3-85f2-e77399189874` | Unresolved GASS char | — |
 
 ### Smart Reminders Characteristics
 | UUID | Label |
@@ -238,40 +240,40 @@ Found in the POLARIS provider; switch-case handler not yet mapped. Function unkn
 ### Terminal IO Service (`8b82xxxx-0f0c-40bb-b422-3770fa72a864`)
 | UUID | Label |
 |------|-------|
-| `8b82105d-...-3770fa72a864` | Terminal IO Service |
-| `8b822409-...-3770fa72a864` | Data RX |
-| `8b82b999-...-3770fa72a864` | Data TX |
-| `8b82cd2d-...-3770fa72a864` | Protocol Choice |
-| `8b82a76f-...-3770fa72a864` | Ready for RX |
-| `8b82f3b9-...-3770fa72a864` | Ready for TX |
-| `8b8225e0-...-3770fa72a864` | Active Program Info |
-| `8b8276e8-...-3770fa72a864` | Basic Control Command |
-| `8b823656-...-3770fa72a864` | Configuration Check |
-| `8b8246c8-...-3770fa72a864` | (Programming) |
-| `8b821572-...-3770fa72a864` | (Terminal IO) |
-| `8b82f55d-...-3770fa72a864` | (Terminal IO) |
-| `8b820369-...-3770fa72a864` | (Terminal IO) |
-| `8b820c6d-...-3770fa72a864` | (Terminal IO) |
+| `8b82105d-0f0c-40bb-b422-3770fa72a864` | Terminal IO Service |
+| `8b822409-0f0c-40bb-b422-3770fa72a864` | Data RX |
+| `8b82b999-0f0c-40bb-b422-3770fa72a864` | Data TX |
+| `8b82cd2d-0f0c-40bb-b422-3770fa72a864` | Protocol Choice |
+| `8b82a76f-0f0c-40bb-b422-3770fa72a864` | Ready for RX |
+| `8b82f3b9-0f0c-40bb-b422-3770fa72a864` | Ready for TX |
+| `8b8225e0-0f0c-40bb-b422-3770fa72a864` | Active Program Info |
+| `8b8276e8-0f0c-40bb-b422-3770fa72a864` | Basic Control Command |
+| `8b823656-0f0c-40bb-b422-3770fa72a864` | Configuration Check |
+| `8b8246c8-0f0c-40bb-b422-3770fa72a864` | (Programming) |
+| `8b821572-0f0c-40bb-b422-3770fa72a864` | (Terminal IO) |
+| `8b82f55d-0f0c-40bb-b422-3770fa72a864` | (Terminal IO) |
+| `8b820369-0f0c-40bb-b422-3770fa72a864` | (Terminal IO) |
+| `8b820c6d-0f0c-40bb-b422-3770fa72a864` | (Terminal IO) |
 
 ### Control/FAPI Service (`c8f7xxxx-21b2-45b8-87f8-bd49a13eff49`)
 | UUID | Label |
 |------|-------|
-| `c8f75466-...-bd49a13eff49` | Control Request |
-| `c8f70447-...-bd49a13eff49` | Control Response |
-| `c8f79c9a-...-bd49a13eff49` | (Control) |
-| `c8f73dc3-...-bd49a13eff49` | (Control) |
-| `c8f72804-...-bd49a13eff49` | Data Request |
-| `c8f72fef-...-bd49a13eff49` | Data Response |
-| `c8f7a8e4-...-bd49a13eff49` | (Data) |
-| `c8f7a68a-...-bd49a13eff49` | (Data) |
-| `c8f76c2c-...-bd49a13eff49` | Advanced Control Command |
-| `c8f714d6-...-bd49a13eff49` | App Data |
-| `c8f76c20-...-bd49a13eff49` | Configuration File |
-| `c8f73c59-...-bd49a13eff49` | FB4H Data |
-| `c8f7eea2-...-bd49a13eff49` | Identifiers |
-| `c8f723da-...-bd49a13eff49` | FAPI Request |
-| `c8f7690c-...-bd49a13eff49` | FAPI Response |
-| `c8f7a831-...-bd49a13eff49` | Programming Service |
+| `c8f75466-21b2-45b8-87f8-bd49a13eff49` | Control Request |
+| `c8f70447-21b2-45b8-87f8-bd49a13eff49` | Control Response |
+| `c8f79c9a-21b2-45b8-87f8-bd49a13eff49` | (Control) |
+| `c8f73dc3-21b2-45b8-87f8-bd49a13eff49` | (Control) |
+| `c8f72804-21b2-45b8-87f8-bd49a13eff49` | Data Request |
+| `c8f72fef-21b2-45b8-87f8-bd49a13eff49` | Data Response |
+| `c8f7a8e4-21b2-45b8-87f8-bd49a13eff49` | (Data) |
+| `c8f7a68a-21b2-45b8-87f8-bd49a13eff49` | (Data) |
+| `c8f76c2c-21b2-45b8-87f8-bd49a13eff49` | Advanced Control Command |
+| `c8f714d6-21b2-45b8-87f8-bd49a13eff49` | App Data |
+| `c8f76c20-21b2-45b8-87f8-bd49a13eff49` | Configuration File |
+| `c8f73c59-21b2-45b8-87f8-bd49a13eff49` | FB4H Data |
+| `c8f7eea2-21b2-45b8-87f8-bd49a13eff49` | Identifiers |
+| `c8f723da-21b2-45b8-87f8-bd49a13eff49` | FAPI Request |
+| `c8f7690c-21b2-45b8-87f8-bd49a13eff49` | FAPI Response |
+| `c8f7a831-21b2-45b8-87f8-bd49a13eff49` | Programming Service |
 | + 8 more characteristics | (various) |
 
 ### Bonding Service
