@@ -1,0 +1,9 @@
+*.apk
+*.xapk
+*.zip
+jadx_output/
+xapk_extracted/
+__pycache__/
+null/
+.claude/
+*.pyc
