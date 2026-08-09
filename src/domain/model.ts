@@ -1,4 +1,4 @@
-export type Brand = "philips" | "rexton" | "resound" | "starkey" | "mfi" | "unknown";
+export type Brand = "mfi" | "unknown";
 
 export type Operation =
   | "SetVolume"

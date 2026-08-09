@@ -4,7 +4,7 @@ import type { CapabilityDecision } from "../src/domain/model";
 
 function decision(status: CapabilityDecision["status"]): CapabilityDecision {
   return {
-    brand: "philips",
+    brand: "mfi",
     operation: "SetVolume",
     status,
     reason: "test"

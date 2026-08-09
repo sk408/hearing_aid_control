@@ -72,7 +72,7 @@ export function ControlPanel({ brand, connected, capabilities, onExecute, onRefr
     const supportedWriteCount = capabilities.filter(
       (item) => WRITE_OPS.includes(item.operation) && item.status === "supported"
     ).length;
-    return brand === "resound" || brand === "starkey" || supportedWriteCount === 0;
+    return supportedWriteCount === 0;
   }, [brand, capabilities]);
 
   const programOptions = useMemo(() => {

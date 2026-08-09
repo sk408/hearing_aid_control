@@ -1,10 +1,6 @@
 import type { Brand, Operation } from "../domain/model";
 import { resolveCapability, type DeviceProfile } from "../capability/capabilityEngine";
 import type { DiagnosticsStream } from "../diagnostics/diagnostics";
-import { PhilipsAdapter } from "./philipsAdapter";
-import { ResoundAdapter } from "./resoundAdapter";
-import { RextonAdapter } from "./rextonAdapter";
-import { StarkeyAdapter } from "./starkeyAdapter";
 import { MfiAdapter } from "./mfiAdapter";
 import type { AdapterContext, BrandAdapter } from "./types";
 import type { Transport } from "../transport/types";
@@ -22,14 +18,6 @@ export function createAdapter(
   };
 
   switch (brand) {
-    case "philips":
-      return new PhilipsAdapter(context);
-    case "rexton":
-      return new RextonAdapter(context);
-    case "resound":
-      return new ResoundAdapter(context);
-    case "starkey":
-      return new StarkeyAdapter(context);
     case "mfi":
       return new MfiAdapter(context, profile);
     case "unknown":
