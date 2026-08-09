@@ -15,6 +15,7 @@ interface RequestDeviceOptions {
 
 interface Bluetooth {
   requestDevice(options?: RequestDeviceOptions): Promise<BluetoothDevice>;
+  getDevices?(): Promise<BluetoothDevice[]>;
 }
 
 interface Navigator {
@@ -48,5 +49,6 @@ interface BluetoothRemoteGATTCharacteristic extends EventTarget {
   readonly value?: DataViewLike;
   readValue(): Promise<DataViewLike>;
   writeValue(value: Uint8Array | ArrayBuffer): Promise<void>;
+  writeValueWithResponse?(value: Uint8Array | ArrayBuffer): Promise<void>;
   startNotifications(): Promise<BluetoothRemoteGATTCharacteristic>;
 }

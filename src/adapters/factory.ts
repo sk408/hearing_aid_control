@@ -5,6 +5,7 @@ import { PhilipsAdapter } from "./philipsAdapter";
 import { ResoundAdapter } from "./resoundAdapter";
 import { RextonAdapter } from "./rextonAdapter";
 import { StarkeyAdapter } from "./starkeyAdapter";
+import { MfiAdapter } from "./mfiAdapter";
 import type { AdapterContext, BrandAdapter } from "./types";
 import type { Transport } from "../transport/types";
 
@@ -29,6 +30,8 @@ export function createAdapter(
       return new ResoundAdapter(context);
     case "starkey":
       return new StarkeyAdapter(context);
+    case "mfi":
+      return new MfiAdapter(context, profile);
     case "unknown":
       throw new Error("Unknown brand adapter is not implemented.");
     default: {

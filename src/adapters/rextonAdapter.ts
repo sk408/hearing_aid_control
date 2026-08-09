@@ -31,6 +31,7 @@ export class RextonAdapter extends BaseAdapter {
       case "RefreshState":
       case "GetBatteryState":
       case "GetDeviceInfo":
+      case "SetStreamVolume":
       case "ProgramStep":
       case "VolumeStep":
         return;

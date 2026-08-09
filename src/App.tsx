@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdapter } from "./adapters/factory";
+import { MfiAdapter } from "./adapters/mfiAdapter";
 import { detectBrandFromServices } from "./brand/detection";
+import { LEA_SERVICE_UUID } from "./brand/mfiSets";
 import { resolveCapabilities, type DeviceProfile } from "./capability/capabilityEngine";
 import { CapabilityTable } from "./ui/CapabilityTable";
 import { DiagnosticsPanel } from "./ui/DiagnosticsPanel";
@@ -13,6 +15,7 @@ import type { BrandAdapter } from "./adapters/types";
 import type { Operation } from "./domain/model";
 
 const OPTIONAL_SERVICES: BluetoothServiceUUID[] = [
+  LEA_SERVICE_UUID,
   "56772eaf-2153-4f74-acf3-4368d99fbf5a",
   "8b82105d-0f0c-40bb-b422-3770fa72a864",
   "e0262760-08c2-11e1-9073-0e8ac72ea010",
@@ -23,6 +26,9 @@ const OPTIONAL_SERVICES: BluetoothServiceUUID[] = [
 ];
 
 const DEVICE_FILTERS: BluetoothLEScanFilter[] = [
+  // LEA first: this app is the universal MFi remote — the chooser leads with
+  // MFi-capable hearing aids. Brand filters stay as fallback for non-LEA devices.
+  { services: [LEA_SERVICE_UUID] },
   { services: ["56772eaf-2153-4f74-acf3-4368d99fbf5a"] },
   { services: ["e0262760-08c2-11e1-9073-0e8ac72ea010"] },
   { services: ["0000fdf0-0000-1000-8000-00805f9b34fb"] },
@@ -51,6 +57,8 @@ export default function App(): JSX.Element {
   const diagnostics = useMemo(() => new DiagnosticsStream(), []);
   const transport = useMemo(() => new WebBleTransport(diagnostics), [diagnostics]);
   const adapterRef = useRef<BrandAdapter | null>(null);
+  const [writeToBoth, setWriteToBoth] = useState<boolean>(false);
+  const [addingEar, setAddingEar] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = diagnostics.onEvent((event) => {
@@ -63,13 +71,15 @@ export default function App(): JSX.Element {
   const connect = async (): Promise<void> => {
     setConnecting(true);
     try {
-      await transport.connect(DEVICE_FILTERS, OPTIONAL_SERVICES);
+      const deviceInfo = await transport.connect(DEVICE_FILTERS, OPTIONAL_SERVICES);
       const discovery = await transport.discover();
       const detectedBrand = detectBrandFromServices(discovery.services);
       const profile: DeviceProfile = {
         brand: detectedBrand,
         discoveredServiceUuids: discovery.services,
-        discoveredCharacteristicUuids: discovery.characteristics
+        discoveredCharacteristicUuids: discovery.characteristics,
+        deviceId: deviceInfo.id,
+        deviceName: deviceInfo.name
       };
       const adapter = createAdapter(detectedBrand, transport, profile, diagnostics);
       await adapter.connect();
@@ -134,10 +144,51 @@ export default function App(): JSX.Element {
     }
   };
 
+  // ── MFi binaural set handlers ──
+
+  const addOtherEar = async (): Promise<void> => {
+    const adapter = adapterRef.current;
+    if (!(adapter instanceof MfiAdapter)) {
+      return;
+    }
+    setAddingEar(true);
+    try {
+      await adapter.addSecondaryEar();
+      const refreshed = await adapter.refreshState();
+      setDriverState(refreshed);
+    } catch (error) {
+      pushMessage(`set-error: ${(error as Error).message}`);
+    } finally {
+      setAddingEar(false);
+    }
+  };
+
+  const toggleWriteToBoth = (value: boolean): void => {
+    const adapter = adapterRef.current;
+    if (adapter instanceof MfiAdapter) {
+      adapter.writeToBoth = value;
+    }
+    setWriteToBoth(value);
+  };
+
+  const mfiPanel =
+    brand === "mfi"
+      ? {
+          isSet: driverState.setActive === true,
+          primarySide: driverState.primarySide,
+          addingEar,
+          writeToBoth,
+          programs: driverState.programs ?? [],
+          streamVolume: driverState.streamVolume ?? 50,
+          onAddOtherEar: addOtherEar,
+          onSetWriteToBoth: toggleWriteToBoth
+        }
+      : undefined;
+
   return (
     <main>
       <h1>Hearing Aid Control (Web MVP)</h1>
-      <p>Brand: {brand}</p>
+      <p>Brand: {brand === "mfi" ? "MFi (Universal)" : brand}</p>
       <p>Session: {connecting ? "connecting" : connected ? "ready" : "idle"}</p>
       <p>Connection: {connected ? "connected" : "disconnected"}</p>
       <div className="actions">
@@ -154,8 +205,23 @@ export default function App(): JSX.Element {
         capabilities={capabilities}
         onExecute={runOperation}
         onRefresh={refreshState}
+        mfi={mfiPanel}
       />
       <SafeModeBanner brand={brand} capabilities={capabilities} />
+      {brand === "mfi" && connected ? (
+        <section>
+          <h3>Battery</h3>
+          <p>
+            {mfiPanel?.isSet
+              ? `${driverState.primarySide === "left" ? "Left" : "Right"} (primary): ${
+                  driverState.batteryPercent ?? "?"
+                }% — ${driverState.primarySide === "left" ? "Right" : "Left"} (secondary): ${
+                  driverState.batteryPercentSecondary ?? "?"
+                }%`
+              : `Battery: ${driverState.batteryPercent ?? "?"}%`}
+          </p>
+        </section>
+      ) : null}
       <section>
         <h3>Current State</h3>
         <pre>{JSON.stringify(driverState, null, 2)}</pre>

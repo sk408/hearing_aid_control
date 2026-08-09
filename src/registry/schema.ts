@@ -7,9 +7,10 @@ import type {
   SafetyClass
 } from "../domain/model";
 
-const BRANDS: readonly Brand[] = ["philips", "rexton", "resound", "starkey", "unknown"];
+const BRANDS: readonly Brand[] = ["philips", "rexton", "resound", "starkey", "mfi", "unknown"];
 const OPERATIONS: readonly Operation[] = [
   "SetVolume",
+  "SetStreamVolume",
   "VolumeStep",
   "SetProgram",
   "ProgramStep",

@@ -8,6 +8,7 @@ export class WebBleTransport implements Transport {
   private server: BluetoothRemoteGATTServer | null = null;
   private state: ConnectionState = "idle";
   private readonly characteristicCache = new Map<string, BluetoothRemoteGATTCharacteristic>();
+  private readonly subscriptions = new Map<string, (notification: TransportNotification) => void>();
 
   public constructor(private readonly diagnostics: DiagnosticsStream) {}
 
@@ -53,25 +54,52 @@ export class WebBleTransport implements Transport {
       }
     }
 
+    return this.connectGatt();
+  }
+
+  /**
+   * Connect to a device the page already has permission for — e.g. one
+   * returned by `navigator.bluetooth.getDevices()`. No chooser is shown, so
+   * this is used for auto-merging a binaural set member without a gesture.
+   */
+  public async connectGrantedDevice(device: BluetoothDevice): Promise<DeviceInfoSummary> {
+    if (this.state === "connected" || this.state === "connecting") {
+      throw new TransportError("Transport already has an active connection.", "ALREADY_CONNECTED");
+    }
+    this.state = "connecting";
+    this.device = device;
+    return this.connectGatt();
+  }
+
+  private async connectGatt(): Promise<DeviceInfoSummary> {
+    const device = this.device;
+    if (!device) {
+      this.state = "disconnected";
+      throw new TransportError("No device selected.", "NO_DEVICE");
+    }
+
     try {
-      this.device.addEventListener("gattserverdisconnected", this.onDisconnected);
-      if (!this.device.gatt) {
+      device.addEventListener("gattserverdisconnected", this.onDisconnected);
+      if (!device.gatt) {
         throw new TransportError("Selected device has no GATT server.", "NO_GATT");
       }
 
-      this.server = await this.device.gatt.connect();
+      this.server = await device.gatt.connect();
       this.state = "connected";
       this.diagnostics.emit({
         type: "transport.connect",
-        detail: `Connected to ${this.device.name ?? "unknown-device"}`
+        detail: `Connected to ${device.name ?? "unknown-device"}`
       });
 
       return {
-        id: this.device.id,
-        name: this.device.name ?? "Unknown hearing aid"
+        id: device.id,
+        name: device.name ?? "Unknown hearing aid"
       };
     } catch (error) {
       this.state = "disconnected";
+      if (error instanceof TransportError) {
+        throw error;
+      }
       throw new TransportError(`Connect failed: ${(error as Error).message}`, "CONNECT_FAILED");
     }
   }
@@ -80,8 +108,10 @@ export class WebBleTransport implements Transport {
     if (this.device?.gatt?.connected) {
       this.device.gatt.disconnect();
     }
+    this.device = null;
     this.server = null;
     this.characteristicCache.clear();
+    this.subscriptions.clear();
     this.state = "disconnected";
     this.diagnostics.emit({
       type: "transport.disconnect",
@@ -122,7 +152,13 @@ export class WebBleTransport implements Transport {
 
   public async write(characteristicUuid: string, value: Uint8Array): Promise<void> {
     const characteristic = await this.getCharacteristic(characteristicUuid);
-    await characteristic.writeValue(value);
+    // Prefer Write Request (ATT 0x12) so the firmware's error codes surface —
+    // e.g. an out-of-range program index is actively rejected (MFI_SPEC §5.1).
+    if (typeof characteristic.writeValueWithResponse === "function") {
+      await characteristic.writeValueWithResponse(value);
+    } else {
+      await characteristic.writeValue(value);
+    }
     this.diagnostics.emit({
       type: "transport.write",
       detail: `Write ${characteristicUuid}: [${Array.from(value).join(",")}]`
@@ -134,6 +170,15 @@ export class WebBleTransport implements Transport {
     onNotification: (notification: TransportNotification) => void
   ): Promise<void> {
     const characteristic = await this.getCharacteristic(characteristicUuid);
+    this.subscriptions.set(characteristicUuid.toLowerCase(), onNotification);
+    await this.armNotifications(characteristic, characteristicUuid, onNotification);
+  }
+
+  private async armNotifications(
+    characteristic: BluetoothRemoteGATTCharacteristic,
+    characteristicUuid: string,
+    onNotification: (notification: TransportNotification) => void
+  ): Promise<void> {
     await characteristic.startNotifications();
     characteristic.addEventListener("characteristicvaluechanged", (event: Event) => {
       const target = event.target as BluetoothRemoteGATTCharacteristic;
@@ -188,6 +233,7 @@ export class WebBleTransport implements Transport {
           type: "transport.connect",
           detail: "Reconnected after disconnect."
         });
+        await this.restoreAfterReconnect();
         return;
       } catch {
         continue;
@@ -200,4 +246,33 @@ export class WebBleTransport implements Transport {
       detail: "Reconnect failed after bounded retries."
     });
   };
+
+  /**
+   * After a reconnect (including the disconnect triggered by OS pairing on
+   * first access to an encrypted characteristic): re-run discovery — secured
+   * characteristics may not have been visible pre-pairing — and re-arm any
+   * notification subscriptions, which do not survive a GATT reconnect.
+   */
+  private async restoreAfterReconnect(): Promise<void> {
+    try {
+      await this.discover();
+    } catch {
+      return;
+    }
+
+    for (const [uuid, callback] of this.subscriptions) {
+      const characteristic = this.characteristicCache.get(uuid);
+      if (!characteristic) {
+        continue;
+      }
+      try {
+        await this.armNotifications(characteristic, uuid, callback);
+      } catch {
+        this.diagnostics.emit({
+          type: "transport.notify",
+          detail: `Failed to re-subscribe ${uuid} after reconnect.`
+        });
+      }
+    }
+  }
 }

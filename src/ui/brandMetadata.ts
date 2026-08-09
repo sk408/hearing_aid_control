@@ -15,6 +15,7 @@ const DEFAULT_PROGRAMS: readonly ProgramOption[] = [
 ];
 
 const BRAND_PROGRAMS: Record<Exclude<Brand, "unknown">, readonly ProgramOption[]> = {
+  mfi: DEFAULT_PROGRAMS,
   philips: [
     { id: 0, label: "General" },
     { id: 1, label: "Speech Focus" },

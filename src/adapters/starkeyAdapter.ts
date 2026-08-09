@@ -17,6 +17,7 @@ export class StarkeyAdapter extends BaseAdapter {
       case "GetDeviceInfo":
         return;
       case "SetVolume":
+      case "SetStreamVolume":
       case "SetProgram":
       case "SetMute":
       case "ProgramStep":

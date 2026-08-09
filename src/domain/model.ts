@@ -1,7 +1,8 @@
-export type Brand = "philips" | "rexton" | "resound" | "starkey" | "unknown";
+export type Brand = "philips" | "rexton" | "resound" | "starkey" | "mfi" | "unknown";
 
 export type Operation =
   | "SetVolume"
+  | "SetStreamVolume"
   | "VolumeStep"
   | "SetProgram"
   | "ProgramStep"

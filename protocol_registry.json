@@ -299,5 +299,101 @@
     "status": "partial",
     "blockReason": "Refresh is read-safe only while write transport is unresolved.",
     "sourceRefs": ["docs/gaps_and_next_steps.md"]
+  },
+  {
+    "brand": "mfi",
+    "operation": "SetVolume",
+    "serviceUuid": "7d74f4bd-c74a-4431-862c-cce884371592",
+    "characteristicUuid": "f3f594f9-e210-48f3-85e2-4b0cf235a9d3",
+    "requestFrameTemplate": ["levelByte"],
+    "responsePattern": {
+      "readback": {
+        "levelByteIndex": 0
+      }
+    },
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["reference/MFI_SPEC.md §3.1", "MFI_WEB_NOTES.md"]
+  },
+  {
+    "brand": "mfi",
+    "operation": "SetStreamVolume",
+    "serviceUuid": "7d74f4bd-c74a-4431-862c-cce884371592",
+    "characteristicUuid": "6ac46200-24ea-46d8-a136-81133c65840a",
+    "requestFrameTemplate": ["levelByte"],
+    "responsePattern": {
+      "readback": {
+        "levelByteIndex": 0
+      }
+    },
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["reference/MFI_SPEC.md §3.1", "MFI_WEB_NOTES.md"]
+  },
+  {
+    "brand": "mfi",
+    "operation": "SetProgram",
+    "serviceUuid": "7d74f4bd-c74a-4431-862c-cce884371592",
+    "characteristicUuid": "a391c6f1-20bb-495a-abbf-2017098fbc61",
+    "requestFrameTemplate": ["programIndexByte"],
+    "responsePattern": {},
+    "safetyClass": "safe-control",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["reference/MFI_SPEC.md §3.2", "MFI_WEB_NOTES.md"]
+  },
+  {
+    "brand": "mfi",
+    "operation": "SetMute",
+    "serviceUuid": "7d74f4bd-c74a-4431-862c-cce884371592",
+    "characteristicUuid": "f3f594f9-e210-48f3-85e2-4b0cf235a9d3",
+    "requestFrameTemplate": ["levelByte"],
+    "responsePattern": {
+      "readback": {
+        "levelByteIndex": 0,
+        "muteWhenValueEquals": 0
+      }
+    },
+    "safetyClass": "safe-control",
+    "confidence": "partial",
+    "status": "supported",
+    "sourceRefs": ["reference/MFI_SPEC.md §3.1", "reference/MFI_SPEC.md §4.7", "MFI_WEB_NOTES.md"]
+  },
+  {
+    "brand": "mfi",
+    "operation": "GetBatteryState",
+    "serviceUuid": "7d74f4bd-c74a-4431-862c-cce884371592",
+    "characteristicUuid": "24e1dff3-ae90-41bf-bfbd-2cf8df42bf87",
+    "requestFrameTemplate": ["read"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["reference/MFI_SPEC.md §1.1", "MFI_WEB_NOTES.md"]
+  },
+  {
+    "brand": "mfi",
+    "operation": "GetDeviceInfo",
+    "serviceUuid": "0000180a-0000-1000-8000-00805f9b34fb",
+    "requestFrameTemplate": ["readManufacturer"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["reference/MFI_SPEC.md §1", "MFI_WEB_NOTES.md"]
+  },
+  {
+    "brand": "mfi",
+    "operation": "RefreshState",
+    "serviceUuid": "7d74f4bd-c74a-4431-862c-cce884371592",
+    "characteristicUuid": "f3f594f9-e210-48f3-85e2-4b0cf235a9d3",
+    "requestFrameTemplate": ["readVolume", "readProgram", "readBattery"],
+    "responsePattern": {},
+    "safetyClass": "state-read",
+    "confidence": "confirmed",
+    "status": "supported",
+    "sourceRefs": ["reference/MFI_SPEC.md §4.1", "MFI_WEB_NOTES.md"]
   }
 ]

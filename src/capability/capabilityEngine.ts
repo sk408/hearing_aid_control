@@ -7,6 +7,9 @@ export interface DeviceProfile {
   readonly brand: Brand;
   readonly discoveredServiceUuids: readonly string[];
   readonly discoveredCharacteristicUuids: readonly string[];
+  /** Web Bluetooth device id / name (origin-scoped), used by the MFi adapter for set persistence. */
+  readonly deviceId?: string;
+  readonly deviceName?: string;
 }
 
 function includesUuid(uuids: readonly string[], uuid: string | undefined): boolean {
