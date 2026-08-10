@@ -10,6 +10,9 @@ export class WebBleTransport implements Transport {
   private readonly characteristicCache = new Map<string, BluetoothRemoteGATTCharacteristic>();
   private readonly subscriptions = new Map<string, (notification: TransportNotification) => void>();
 
+  /** See Transport.resubscribeFilter. */
+  public resubscribeFilter: ((characteristicUuid: string) => Promise<boolean>) | null = null;
+
   public constructor(private readonly diagnostics: DiagnosticsStream) {}
 
   public getConnectionState(): ConnectionState {
@@ -252,6 +255,9 @@ export class WebBleTransport implements Transport {
    * first access to an encrypted characteristic): re-run discovery — secured
    * characteristics may not have been visible pre-pairing — and re-arm any
    * notification subscriptions, which do not survive a GATT reconnect.
+   * The adapter-installed resubscribeFilter (if any) gates which
+   * subscriptions are re-armed, so secured characteristics are not blindly
+   * re-subscribed on an unbonded link.
    */
   private async restoreAfterReconnect(): Promise<void> {
     try {
@@ -266,6 +272,13 @@ export class WebBleTransport implements Transport {
         continue;
       }
       try {
+        if (this.resubscribeFilter && !(await this.resubscribeFilter(uuid))) {
+          this.diagnostics.emit({
+            type: "transport.notify",
+            detail: `Skipped re-subscribe ${uuid} after reconnect (gated by adapter).`
+          });
+          continue;
+        }
         await this.armNotifications(characteristic, uuid, callback);
       } catch {
         this.diagnostics.emit({

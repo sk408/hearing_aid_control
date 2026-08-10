@@ -1,11 +1,14 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  isFittingBroadcastName,
   isVerifiedMfi,
   loadLastSet,
+  looksLikeMfiHearingAidName,
   markVerifiedMfi,
   saveLastSet,
   splitNameAndSide,
-  suggestSetSibling
+  suggestSetSibling,
+  verifiedMfiName
 } from "../src/brand/mfiSets";
 
 describe("splitNameAndSide", () => {
@@ -71,12 +74,42 @@ describe("verified-MFi persistence (localStorage)", () => {
     expect(isVerifiedMfi("dev-1")).toBe(true);
     expect(isVerifiedMfi("DEV-1")).toBe(true);
     expect(isVerifiedMfi("dev-2")).toBe(false);
-    expect(window.localStorage.getItem("@mfi_verified")).toContain("DEV-1");
+    expect(window.localStorage.getItem("mfi_verified_v1")).toContain("DEV-1");
+  });
+
+  it("persists and returns the advertised name", () => {
+    markVerifiedMfi("dev-name-1", "Steve's Hearing Aids");
+    expect(verifiedMfiName("dev-name-1")).toBe("Steve's Hearing Aids");
+    expect(verifiedMfiName("dev-name-2")).toBeNull();
+  });
+
+  it("migrates the legacy ids-only key", async () => {
+    // Reset the module so its session cache reloads from storage.
+    vi.resetModules();
+    window.localStorage.setItem("@mfi_verified", JSON.stringify(["LEGACY-1"]));
+    const fresh = await import("../src/brand/mfiSets");
+    expect(fresh.isVerifiedMfi("legacy-1")).toBe(true);
+    expect(window.localStorage.getItem("mfi_verified_v1")).toContain("LEGACY-1");
   });
 
   it("round-trips last-set metadata", () => {
     expect(loadLastSet()).toBeNull();
     saveLastSet({ primaryId: "p", secondaryId: "s", primarySide: "right" });
     expect(loadLastSet()).toEqual({ primaryId: "p", secondaryId: "s", primarySide: "right" });
+  });
+});
+
+describe("scan identity heuristics", () => {
+  it("flags the GN fitting broadcast", () => {
+    expect(isFittingBroadcastName("GN")).toBe(true);
+    expect(isFittingBroadcastName("GN ")).toBe(true);
+    expect(isFittingBroadcastName("GN Hearing")).toBe(true);
+    expect(isFittingBroadcastName("Steve's Hearing Aids")).toBe(false);
+    expect(isFittingBroadcastName("ReSound Vivia")).toBe(false);
+  });
+
+  it("prefers MFi phone-side identity names", () => {
+    expect(looksLikeMfiHearingAidName("Steve's Hearing Aids")).toBe(true);
+    expect(looksLikeMfiHearingAidName("GN")).toBe(false);
   });
 });

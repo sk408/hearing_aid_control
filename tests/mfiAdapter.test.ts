@@ -108,4 +108,47 @@ describe("MfiAdapter", () => {
     expect(state.programs?.map((item) => item.index)).toEqual([0, 1]);
     expect(state.deviceInfo?.name).toBe("MFi hearing aid (GN)");
   });
+
+  it("reports bonded when the secured seed reads succeed", () => {
+    expect(adapter.bondState).toBe("bonded");
+  });
+});
+
+describe("MfiAdapter bond state (unbonded link)", () => {
+  let transport: MockTransport;
+  let adapter: MfiAdapter;
+
+  beforeEach(async () => {
+    window.localStorage.clear();
+    transport = new MockTransport();
+    // Only the UNSECURED characteristics respond — the insufficient-
+    // authentication pattern seen live on unpaired ReSound GN aids.
+    transport.setRead(BATTERY, [87]);
+    transport.setRead(SIDE, [1]);
+    transport.setRead(DIS_MANUFACTURER, [71, 78]);
+    adapter = makeAdapter(transport);
+    adapter.lazyPairingRetryDelayMs = 0;
+    await adapter.connect();
+  });
+
+  it("detects needs-pairing when secured reads fail but unsecured reads succeed", () => {
+    expect(adapter.bondState).toBe("needs-pairing");
+  });
+
+  it("recovers to bonded via retryBondedSetup once secured reads succeed", async () => {
+    expect(adapter.bondState).toBe("needs-pairing");
+    transport.setRead(MIC_ATT, [200]);
+    transport.setRead(STREAM_ATT, [128]);
+    transport.setRead(CURRENT_PROGRAM, [0]);
+    transport.setRead(AVAILABLE_PROGRAMS, [0x03, 0, 0, 0]);
+
+    await expect(adapter.retryBondedSetup()).resolves.toBe("bonded");
+    expect(adapter.bondState).toBe("bonded");
+  });
+
+  it("maps auth-type write failures to pairing guidance while unbonded", async () => {
+    transport.failWrites = true;
+    await expect(adapter.execute("SetVolume", { level: 50 })).rejects.toThrow(/Pairing required/);
+    expect(adapter.bondState).toBe("needs-pairing");
+  });
 });

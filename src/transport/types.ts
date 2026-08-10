@@ -33,4 +33,11 @@ export interface Transport {
     onNotification: (notification: TransportNotification) => void
   ): Promise<void>;
   getConnectionState(): ConnectionState;
+  /**
+   * Optional adapter-installed hook deciding which subscriptions get re-armed
+   * after a reconnect. Return false to skip a characteristic (e.g. secured
+   * LEA characteristics while the link is unbonded). When unset, every
+   * subscription is re-armed (default behavior).
+   */
+  resubscribeFilter?: ((characteristicUuid: string) => Promise<boolean>) | null;
 }

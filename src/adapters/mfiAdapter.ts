@@ -44,6 +44,7 @@
  *
  * This file intentionally imports NO brand-core code.
  */
+import { isAuthError, pairingGuidance, type BondState } from "../brand/bond";
 import { LEA_SERVICE_UUID, markVerifiedMfi, isVerifiedMfi, loadLastSet, saveLastSet, suggestSetSibling } from "../brand/mfiSets";
 import type { DeviceProfile } from "../capability/capabilityEngine";
 import type { Operation } from "../domain/model";
@@ -72,6 +73,22 @@ const LEA_LEFT_RIGHT = "8d17ac2f-1d54-4742-a49a-ef4b20784eb3";
 const LEA_PROGRAM_NAME_SELECTOR = "a28b6be1-2fa4-42f8-aeb2-b15a1dbd837a";
 /** UTF-8 name of the selected program — R/W, 60-byte fixed field */
 const LEA_PROGRAM_NAME = "7be94a55-8d91-4592-bc0f-ea3664ccd3a9";
+
+/**
+ * LEA characteristics that require an ENCRYPTED/bonded link (confirmed live
+ * against ReSound GN aids: battery/side/DIS read fine unbonded, these fail).
+ * Secured subscriptions are only armed once bondState === 'bonded'.
+ */
+const SECURED_CHARACTERISTICS: ReadonlySet<string> = new Set(
+  [
+    LEA_MIC_ATTENUATION,
+    LEA_STREAM_ATTENUATION,
+    LEA_AVAILABLE_PROGRAMS,
+    LEA_CURRENT_ACTIVE_PROGRAM,
+    LEA_PROGRAM_NAME_SELECTOR,
+    LEA_PROGRAM_NAME
+  ].map((uuid) => uuid.toLowerCase())
+);
 
 // ── Device Information Service (display only — no brand logic) ──
 
@@ -176,6 +193,28 @@ export class MfiAdapter extends BaseAdapter {
   /** Pre-mute attenuation for mute emulation restore (spec §3.1) */
   private preMuteMicAtt: number | null = null;
 
+  /**
+   * Inferred bond state of the primary link (web has no bond-state API — see
+   * src/brand/bond.ts). 'bonded' once a secured read succeeds, 'needs-pairing'
+   * when secured accesses fail while unsecured reads (battery/side) succeed.
+   */
+  private bondStateValue: BondState = "unknown";
+
+  /** Optional UI hook (assigned by the app shell) fired on every bondState change. */
+  public onBondStateChange: ((state: BondState) => void) | null = null;
+
+  /**
+   * Delay before the single lazy-pairing retry of the secured seed reads.
+   * Some OS stacks complete pairing lazily on first secured access, so the
+   * first attempt can fail while the link finishes bonding in the background.
+   * Mutable for tests.
+   */
+  public lazyPairingRetryDelayMs = 2000;
+
+  // Dedupes the post-reconnect bond probe across one restore pass.
+  private lastBondProbeAt = 0;
+  private lastBondProbe: Promise<boolean> | null = null;
+
   public constructor(
     context: AdapterContext,
     profile: Pick<DeviceProfile, "deviceId" | "deviceName"> = {}
@@ -190,6 +229,18 @@ export class MfiAdapter extends BaseAdapter {
     return this.secondary != null;
   }
 
+  /** Inferred bond state of the link (see src/brand/bond.ts). */
+  public get bondState(): BondState {
+    return this.bondStateValue;
+  }
+
+  private setBondState(state: BondState): void {
+    if (this.bondStateValue === state) return;
+    this.bondStateValue = state;
+    this.log(`Bond state: ${state}`);
+    this.onBondStateChange?.(state);
+  }
+
   private get primary(): Transport {
     return this.context.transport;
   }
@@ -197,8 +248,8 @@ export class MfiAdapter extends BaseAdapter {
   // ── Byte-level helpers ──
 
   /** Read a single-byte LEA characteristic from a specific aid */
-  private async readByteFrom(transport: Transport, charUuid: string): Promise<number> {
-    const value = await withRetry(() => transport.read(charUuid));
+  private async readByteFrom(transport: Transport, charUuid: string, retries = MAX_RETRIES): Promise<number> {
+    const value = await withRetry(() => transport.read(charUuid), retries);
     if (value.length === 0) throw new Error(`MfiAdapter: empty read on ${charUuid}`);
     return value[0];
   }
@@ -208,8 +259,8 @@ export class MfiAdapter extends BaseAdapter {
     await withRetry(() => transport.write(charUuid, new Uint8Array([value & 0xff])));
   }
 
-  private readByte(charUuid: string): Promise<number> {
-    return this.readByteFrom(this.primary, charUuid);
+  private readByte(charUuid: string, retries = MAX_RETRIES): Promise<number> {
+    return this.readByteFrom(this.primary, charUuid, retries);
   }
 
   /**
@@ -265,16 +316,23 @@ export class MfiAdapter extends BaseAdapter {
   /**
    * Set up the primary aid. The transport is already connected and discovered
    * by the app shell; here we seed state and arm notifications.
-   * Bonding note (web): there is no createBond(). Chrome triggers OS pairing
-   * implicitly when an encrypted characteristic is first accessed — the reads
-   * below are that trigger. If pairing drops the link, the transport
-   * reconnects + re-discovers and the retry wrapper rides it out.
+   * Bonding note (web): there is no createBond(). The LEA control
+   * characteristics require an encrypted/bonded link (confirmed live), and
+   * Chrome on Windows does not reliably auto-trigger OS pairing on secured
+   * access — so the secured seed reads double as the bond probe: if they fail
+   * while the unsecured reads (battery/side/DIS) succeed, bondState becomes
+   * 'needs-pairing' and the UI shows pairing guidance. One lazy retry rides
+   * out stacks that complete pairing in the background on first secured
+   * access.
    */
   public override async connect(): Promise<void> {
     // Piggyback verification (TASK16 port): this adapter is only constructed
     // after detection found the LEA service, so the id goes straight into the
     // verified-MFi set.
-    markVerifiedMfi(this.primaryId);
+    markVerifiedMfi(this.primaryId, this.primaryName);
+
+    // Unsecured reads first — their success is the control signal that
+    // distinguishes "link up but unbonded" from a broken link.
 
     // DIS manufacturer name for display only (no brand logic — spec §1)
     try {
@@ -289,40 +347,40 @@ export class MfiAdapter extends BaseAdapter {
     const side = await this.readSide(this.primary);
     if (side) this.primarySide = side;
 
-    // Seed state from reads
-    try {
-      this.cachedVolume = mfiToVolume(await this.readByte(LEA_MIC_ATTENUATION));
-    } catch {
-      this.log("Initial mic attenuation read failed");
-    }
-    try {
-      this.cachedStreamVolume = mfiToVolume(await this.readByte(LEA_STREAM_ATTENUATION));
-    } catch {
-      this.log("Initial stream attenuation read failed");
-    }
-    try {
-      this.cachedProgram = await this.readByte(LEA_CURRENT_ACTIVE_PROGRAM);
-    } catch {
-      this.log("Initial program read failed");
-    }
-    try {
-      await this.readAvailableProgramsMask();
-      this.log(`Available programs mask: 0x${(this.availableProgramsMask ?? 0).toString(16)}`);
-    } catch {
-      this.log("AvailablePrograms read failed");
-    }
+    let unsecuredOk = side != null;
     try {
       this.cachedBattery = await this.readByte(LEA_BATTERY_LEVEL);
+      unsecuredOk = true;
     } catch {
       this.log("Initial battery read failed");
     }
-    try {
-      this.cachedPrograms = await this.readProgramNames();
-    } catch {
-      this.log("Program name reads failed");
+
+    // Secured seed reads (bond probe) with one lazy-pairing retry.
+    let securedOk = await this.seedSecuredState();
+    if (!securedOk) {
+      this.log(`Secured reads failed — waiting ${this.lazyPairingRetryDelayMs}ms for lazy OS pairing, then retrying once`);
+      await new Promise<void>((resolve) => setTimeout(resolve, this.lazyPairingRetryDelayMs));
+      securedOk = await this.seedSecuredState();
     }
 
+    if (securedOk) {
+      this.setBondState("bonded");
+    } else if (unsecuredOk) {
+      // The insufficient-authentication pattern: unsecured reads work, every
+      // secured read fails → the aids are not paired with this computer.
+      this.setBondState("needs-pairing");
+      this.log(pairingGuidance(this.primaryName));
+    } else {
+      this.setBondState("unknown");
+      this.log("Secured reads failed and unsecured reads failed too — link problem, not (only) pairing");
+    }
+
+    // Battery notify is unsecured — always arm it. The secured notification
+    // subscriptions are queued until bondState === 'bonded'.
     this.subscribePrimaryNotifications();
+
+    // Gate post-reconnect re-subscribes through the bond probe.
+    this.installResubscribeFilter(this.primary);
 
     // Auto-merge a binaural set member when one is already granted
     // (getDevices) and matches the grouping heuristics / last-set metadata.
@@ -331,8 +389,86 @@ export class MfiAdapter extends BaseAdapter {
     this.log("Primary connection setup complete");
   }
 
+  /**
+   * Seed state from the secured LEA characteristics. Returns true when the
+   * core secured reads succeeded (i.e. the link is bonded). Seed reads use a
+   * single attempt each — the caller's lazy-pairing retry is the recovery
+   * path, and auth failures are not helped by immediate retries.
+   */
+  private async seedSecuredState(): Promise<boolean> {
+    let ok = true;
+    try {
+      this.cachedVolume = mfiToVolume(await this.readByte(LEA_MIC_ATTENUATION, 1));
+    } catch {
+      this.log("Initial mic attenuation read failed");
+      ok = false;
+    }
+    try {
+      this.cachedStreamVolume = mfiToVolume(await this.readByte(LEA_STREAM_ATTENUATION, 1));
+    } catch {
+      this.log("Initial stream attenuation read failed");
+      ok = false;
+    }
+    try {
+      this.cachedProgram = await this.readByte(LEA_CURRENT_ACTIVE_PROGRAM, 1);
+    } catch {
+      this.log("Initial program read failed");
+      ok = false;
+    }
+    try {
+      await this.readAvailableProgramsMask();
+      this.log(`Available programs mask: 0x${(this.availableProgramsMask ?? 0).toString(16)}`);
+    } catch {
+      this.log("AvailablePrograms read failed");
+      ok = false;
+    }
+    if (ok) {
+      // Program names ride the secured characteristics too — only attempt
+      // them on a bonded link.
+      try {
+        this.cachedPrograms = await this.readProgramNames();
+      } catch {
+        this.log("Program name reads failed");
+      }
+    }
+    return ok;
+  }
+
+  /**
+   * Retry the secured-read sequence after the user has paired the aids in the
+   * OS Bluetooth settings (wired to the pairing banner's Retry button). On
+   * success the queued secured subscriptions are armed.
+   */
+  public async retryBondedSetup(): Promise<BondState> {
+    if (this.bondState === "bonded") return this.bondState;
+    const ok = await this.seedSecuredState();
+    if (ok) {
+      this.setBondState("bonded");
+      this.subscribeSecuredPrimary();
+    } else {
+      this.setBondState("needs-pairing");
+      this.log(pairingGuidance(this.primaryName));
+    }
+    return this.bondState;
+  }
+
   /** Subscribe to notifications so the cache tracks hardware button presses */
   private subscribePrimaryNotifications(): void {
+    // Unsecured — always armed.
+    void this.trySubscribe(this.primary, LEA_BATTERY_LEVEL, (value) => {
+      this.cachedBattery = value[0];
+      this.log(`Battery notify (primary): ${this.cachedBattery}%`);
+    });
+
+    if (this.bondState === "bonded") {
+      this.subscribeSecuredPrimary();
+    } else {
+      this.log("Secured subscriptions queued until the link is bonded");
+    }
+  }
+
+  /** Secured notification subscriptions — only armed on a bonded link. */
+  private subscribeSecuredPrimary(): void {
     void this.trySubscribe(this.primary, LEA_MIC_ATTENUATION, (value) => {
       this.cachedVolume = mfiToVolume(value[0]);
       this.log(`Mic attenuation notify: ${value[0]} (${this.cachedVolume}%)`);
@@ -345,10 +481,42 @@ export class MfiAdapter extends BaseAdapter {
       this.cachedProgram = value[0];
       this.log(`Program notify: ${this.cachedProgram}`);
     });
-    void this.trySubscribe(this.primary, LEA_BATTERY_LEVEL, (value) => {
-      this.cachedBattery = value[0];
-      this.log(`Battery notify (primary): ${this.cachedBattery}%`);
-    });
+  }
+
+  /**
+   * Install the transport's post-reconnect resubscribe gate: unsecured
+   * subscriptions (battery) are always re-armed; secured ones only after a
+   * probe secured read succeeds. On probe failure the adapter goes through
+   * the pairing-guidance path instead of logging dead re-subscribe errors.
+   */
+  private installResubscribeFilter(transport: Transport): void {
+    transport.resubscribeFilter = async (uuid: string): Promise<boolean> => {
+      if (!SECURED_CHARACTERISTICS.has(uuid.toLowerCase())) return true;
+      if (await this.probeBond(transport)) return true;
+      this.setBondState("needs-pairing");
+      this.log(`Re-subscribe of ${uuid} deferred — link is not bonded`);
+      return false;
+    };
+  }
+
+  /**
+   * Probe the bond state with a single secured read. Probes are deduped
+   * across one restore pass (the transport queries the filter per
+   * subscription, sequentially).
+   */
+  private probeBond(transport: Transport): Promise<boolean> {
+    const now = Date.now();
+    if (this.lastBondProbe && now - this.lastBondProbeAt < 5000) {
+      return this.lastBondProbe;
+    }
+    this.lastBondProbeAt = now;
+    this.lastBondProbe = this.readByteFrom(transport, LEA_MIC_ATTENUATION, 1)
+      .then(() => {
+        this.setBondState("bonded");
+        return true;
+      })
+      .catch(() => false);
+    return this.lastBondProbe;
   }
 
   private async trySubscribe(
@@ -445,7 +613,7 @@ export class MfiAdapter extends BaseAdapter {
     if (!hasLea) {
       throw new Error("MfiAdapter: LEA (MFi hearing aid) service not found on secondary device");
     }
-    markVerifiedMfi(id);
+    markVerifiedMfi(id, name);
 
     const link: MemberLink = { transport, id, name, battery: null };
     this.secondary = link;
@@ -463,21 +631,29 @@ export class MfiAdapter extends BaseAdapter {
       this.log("Secondary initial battery read failed");
     }
 
-    // Observe the secondary aid: battery, plus volume/program notifications
-    // (the set syncs over the ear-to-ear link, so secondary notifications
-    // confirm the primary's writes took effect across both ears).
+    // Observe the secondary aid: battery (unsecured — always), plus
+    // volume/program notifications (the set syncs over the ear-to-ear link,
+    // so secondary notifications confirm the primary's writes took effect
+    // across both ears). Secured subscriptions follow the bond state.
     void this.trySubscribe(transport, LEA_BATTERY_LEVEL, (value) => {
       link.battery = value[0];
       this.log(`Battery notify (secondary): ${value[0]}%`);
     });
-    void this.trySubscribe(transport, LEA_MIC_ATTENUATION, (value) => {
-      this.cachedVolume = mfiToVolume(value[0]);
-      this.log(`Mic attenuation notify (secondary): ${value[0]}`);
-    });
-    void this.trySubscribe(transport, LEA_CURRENT_ACTIVE_PROGRAM, (value) => {
-      this.cachedProgram = value[0];
-      this.log(`Program notify (secondary): ${value[0]}`);
-    });
+    if (this.bondState === "bonded") {
+      void this.trySubscribe(transport, LEA_MIC_ATTENUATION, (value) => {
+        this.cachedVolume = mfiToVolume(value[0]);
+        this.log(`Mic attenuation notify (secondary): ${value[0]}`);
+      });
+      void this.trySubscribe(transport, LEA_CURRENT_ACTIVE_PROGRAM, (value) => {
+        this.cachedProgram = value[0];
+        this.log(`Program notify (secondary): ${value[0]}`);
+      });
+    } else {
+      this.log("Secondary secured subscriptions queued until the link is bonded");
+    }
+
+    // Gate post-reconnect re-subscribes on the secondary link too.
+    this.installResubscribeFilter(transport);
 
     saveLastSet({ primaryId: this.primaryId, secondaryId: id, primarySide: this.primarySide });
     this.log("Secondary connection setup complete — set active");
@@ -627,6 +803,32 @@ export class MfiAdapter extends BaseAdapter {
   // ── BrandAdapter interface ──
 
   protected async executeInternal(
+    operation: Operation,
+    args: Record<string, number | boolean | string>
+  ): Promise<void> {
+    try {
+      await this.executeSecured(operation, args);
+    } catch (error) {
+      throw this.mapWriteError(error);
+    }
+  }
+
+  /**
+   * Map insufficient-authentication write failures to actionable pairing
+   * guidance instead of a bare "GATT operation failed". Only applied when the
+   * link is not known to be bonded — on a bonded link the same error text is
+   * more likely a genuine GATT failure.
+   */
+  private mapWriteError(error: unknown): Error {
+    const err = error instanceof Error ? error : new Error(String(error));
+    if (this.bondState !== "bonded" && isAuthError(err)) {
+      this.setBondState("needs-pairing");
+      return new Error(pairingGuidance(this.primaryName));
+    }
+    return err;
+  }
+
+  private async executeSecured(
     operation: Operation,
     args: Record<string, number | boolean | string>
   ): Promise<void> {

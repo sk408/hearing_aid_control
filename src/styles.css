@@ -144,3 +144,44 @@ td {
   max-height: 250px;
   overflow: auto;
 }
+
+.pairing-banner {
+  margin: 12px 0;
+  border: 1px solid #92400e;
+  border-radius: 8px;
+  background: #1c1305;
+  padding: 10px 12px;
+}
+
+.pairing-banner strong {
+  color: #fbbf24;
+}
+
+.pairing-banner p {
+  color: #fde68a;
+  margin: 8px 0;
+}
+
+.pairing-banner ol {
+  margin: 8px 0 12px 20px;
+  padding: 0;
+}
+
+.pairing-banner li {
+  margin-bottom: 6px;
+  color: #fcd34d;
+}
+
+.previous-devices {
+  margin: 12px 0;
+}
+
+.previous-devices button {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.previous-devices .verified-tag {
+  color: #4ade80;
+  font-size: 0.85rem;
+}

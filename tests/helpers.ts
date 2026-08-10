@@ -5,6 +5,9 @@ export class MockTransport implements Transport {
   private readonly reads = new Map<string, Uint8Array>();
   public readonly writes: Array<{ uuid: string; value: Uint8Array }> = [];
 
+  /** When true, writes reject the way Chrome does on an unbonded secured char. */
+  public failWrites = false;
+
   public setRead(uuid: string, value: number[]): void {
     this.reads.set(uuid.toLowerCase(), new Uint8Array(value));
   }
@@ -31,6 +34,9 @@ export class MockTransport implements Transport {
   }
 
   public async write(characteristicUuid: string, value: Uint8Array): Promise<void> {
+    if (this.failWrites) {
+      throw new Error("GATT operation failed for unknown reason");
+    }
     this.writes.push({ uuid: characteristicUuid, value });
   }
 

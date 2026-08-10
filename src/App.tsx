@@ -2,16 +2,23 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createAdapter } from "./adapters/factory";
 import { MfiAdapter } from "./adapters/mfiAdapter";
 import { detectBrandFromServices } from "./brand/detection";
-import { LEA_SERVICE_UUID } from "./brand/mfiSets";
+import {
+  LEA_SERVICE_UUID,
+  isFittingBroadcastName,
+  isVerifiedMfi,
+  looksLikeMfiHearingAidName
+} from "./brand/mfiSets";
 import { resolveCapabilities, type DeviceProfile } from "./capability/capabilityEngine";
 import { CapabilityTable } from "./ui/CapabilityTable";
 import { DiagnosticsPanel } from "./ui/DiagnosticsPanel";
 import { ControlPanel } from "./ui/ControlPanel";
+import { PairingBanner } from "./ui/PairingBanner";
 import { SafeModeBanner } from "./ui/SafeModeBanner";
 import { useAppStore } from "./store/appStore";
 import { DiagnosticsStream } from "./diagnostics/diagnostics";
 import { WebBleTransport } from "./transport/webBleTransport";
 import type { BrandAdapter } from "./adapters/types";
+import type { DeviceInfoSummary } from "./transport/types";
 import type { Operation } from "./domain/model";
 
 const OPTIONAL_SERVICES: BluetoothServiceUUID[] = [
@@ -51,6 +58,8 @@ export default function App(): JSX.Element {
   const setCapabilities = useAppStore((state) => state.setCapabilities);
   const setDriverState = useAppStore((state) => state.setDriverState);
   const setDiscovery = useAppStore((state) => state.setDiscovery);
+  const bondState = useAppStore((state) => state.bondState);
+  const setBondState = useAppStore((state) => state.setBondState);
   const pushMessage = useAppStore((state) => state.pushMessage);
   const resetSession = useAppStore((state) => state.resetSession);
 
@@ -59,6 +68,8 @@ export default function App(): JSX.Element {
   const adapterRef = useRef<BrandAdapter | null>(null);
   const [writeToBoth, setWriteToBoth] = useState<boolean>(false);
   const [addingEar, setAddingEar] = useState<boolean>(false);
+  const [deviceName, setDeviceName] = useState<string>("");
+  const [grantedDevices, setGrantedDevices] = useState<readonly BluetoothDevice[]>([]);
 
   useEffect(() => {
     const unsubscribe = diagnostics.onEvent((event) => {
@@ -68,37 +79,104 @@ export default function App(): JSX.Element {
     return unsubscribe;
   }, [diagnostics, pushMessage]);
 
+  // Previously granted devices for one-tap reconnect without the chooser.
+  // navigator.bluetooth.getDevices() needs Chrome 85+ permission persistence;
+  // on some builds it requires chrome://flags/#enable-web-bluetooth-new-permissions-backend.
+  useEffect(() => {
+    if (!("bluetooth" in navigator) || typeof navigator.bluetooth.getDevices !== "function") return;
+    navigator.bluetooth
+      .getDevices()
+      .then((devices) => {
+        // Identity selection: GN aids broadcast two identities — hide the
+        // fitting broadcast ("GN"), prefer verified/MFi-ish names.
+        const usable = devices.filter((device) => !isFittingBroadcastName(device.name ?? ""));
+        const rank = (device: BluetoothDevice): number => {
+          if (isVerifiedMfi(device.id)) return 0;
+          if (looksLikeMfiHearingAidName(device.name ?? "")) return 1;
+          return 2;
+        };
+        setGrantedDevices([...usable].sort((a, b) => rank(a) - rank(b)));
+      })
+      .catch(() => undefined);
+  }, []);
+
+  /** Shared post-connection setup for both the chooser and getDevices paths. */
+  const finishConnect = async (deviceInfo: DeviceInfoSummary): Promise<void> => {
+    const discovery = await transport.discover();
+    const detectedBrand = detectBrandFromServices(discovery.services);
+    const profile: DeviceProfile = {
+      brand: detectedBrand,
+      discoveredServiceUuids: discovery.services,
+      discoveredCharacteristicUuids: discovery.characteristics,
+      deviceId: deviceInfo.id,
+      deviceName: deviceInfo.name
+    };
+    const adapter = createAdapter(detectedBrand, transport, profile, diagnostics);
+    if (adapter instanceof MfiAdapter) {
+      adapter.onBondStateChange = setBondState;
+    }
+    await adapter.connect();
+    const resolved = resolveCapabilities(profile);
+    const state = await adapter.refreshState();
+
+    adapterRef.current = adapter;
+    setBrand(detectedBrand);
+    setCapabilities(resolved);
+    setDriverState(state);
+    setDiscovery(discovery.services, discovery.characteristics);
+    setDeviceName(deviceInfo.name);
+    if (adapter instanceof MfiAdapter) {
+      setBondState(adapter.bondState);
+    }
+    setConnected(true);
+  };
+
+  const handleConnectError = async (error: unknown): Promise<void> => {
+    pushMessage(`connect-error: ${(error as Error).message}`);
+    await transport.disconnect();
+    adapterRef.current = null;
+    resetSession();
+  };
+
   const connect = async (): Promise<void> => {
     setConnecting(true);
     try {
       const deviceInfo = await transport.connect(DEVICE_FILTERS, OPTIONAL_SERVICES);
-      const discovery = await transport.discover();
-      const detectedBrand = detectBrandFromServices(discovery.services);
-      const profile: DeviceProfile = {
-        brand: detectedBrand,
-        discoveredServiceUuids: discovery.services,
-        discoveredCharacteristicUuids: discovery.characteristics,
-        deviceId: deviceInfo.id,
-        deviceName: deviceInfo.name
-      };
-      const adapter = createAdapter(detectedBrand, transport, profile, diagnostics);
-      await adapter.connect();
-      const resolved = resolveCapabilities(profile);
-      const state = await adapter.refreshState();
-
-      adapterRef.current = adapter;
-      setBrand(detectedBrand);
-      setCapabilities(resolved);
-      setDriverState(state);
-      setDiscovery(discovery.services, discovery.characteristics);
-      setConnected(true);
+      await finishConnect(deviceInfo);
     } catch (error) {
-      pushMessage(`connect-error: ${(error as Error).message}`);
-      await transport.disconnect();
-      adapterRef.current = null;
-      resetSession();
+      await handleConnectError(error);
     } finally {
       setConnecting(false);
+    }
+  };
+
+  /** One-tap reconnect to a previously granted device — no chooser. */
+  const reconnectGranted = async (device: BluetoothDevice): Promise<void> => {
+    setConnecting(true);
+    try {
+      const deviceInfo = await transport.connectGrantedDevice(device);
+      await finishConnect(deviceInfo);
+    } catch (error) {
+      await handleConnectError(error);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  /** Pairing banner Retry: re-run the secured-read sequence on the live link. */
+  const retryPairing = async (): Promise<void> => {
+    const adapter = adapterRef.current;
+    if (!(adapter instanceof MfiAdapter)) return;
+    try {
+      const state = await adapter.retryBondedSetup();
+      setBondState(state);
+      if (state === "bonded") {
+        const refreshed = await adapter.refreshState();
+        setDriverState(refreshed);
+        pushMessage("pairing: secured reads succeeded — link is bonded");
+      }
+    } catch (error) {
+      pushMessage(`pairing-error: ${(error as Error).message}`);
     }
   };
 
@@ -199,6 +277,20 @@ export default function App(): JSX.Element {
           Disconnect
         </button>
       </div>
+      {!connected && grantedDevices.length > 0 ? (
+        <section className="previous-devices">
+          <h3>Previously connected</h3>
+          {grantedDevices.map((device) => (
+            <button key={device.id} onClick={() => void reconnectGranted(device)} disabled={connecting}>
+              {device.name ?? "Unknown device"}
+              {isVerifiedMfi(device.id) ? <span className="verified-tag"> — MFi hearing aid (verified)</span> : null}
+            </button>
+          ))}
+        </section>
+      ) : null}
+      {connected && bondState === "needs-pairing" ? (
+        <PairingBanner deviceName={deviceName || "your hearing aids"} onRetry={retryPairing} />
+      ) : null}
       <ControlPanel
         brand={brand}
         connected={connected}

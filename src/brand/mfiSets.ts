@@ -16,15 +16,24 @@ import type { Brand } from "../domain/model";
 /** Standardized MFi / LEA hearing-aid control service (MFI_SPEC.md §1.1) */
 export const LEA_SERVICE_UUID = "7d74f4bd-c74a-4431-862c-cce884371592";
 
-/** localStorage key for the persisted set of LEA-verified device ids. */
-const VERIFIED_STORAGE_KEY = "@mfi_verified";
+/** localStorage key for the persisted set of LEA-verified devices (id + name). */
+const VERIFIED_STORAGE_KEY = "mfi_verified_v1";
+
+/** Legacy ids-only key, migrated into mfi_verified_v1 on first load. */
+const LEGACY_VERIFIED_STORAGE_KEY = "@mfi_verified";
 
 /** localStorage key for the last successfully connected binaural set. */
 const LAST_SET_STORAGE_KEY = "@mfi_last_set";
 
 // ── Persisted verified-MFi set ──
 
-const verifiedIds = new Set<string>();
+interface VerifiedEntry {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** id (uppercased) → last known advertised name */
+const verifiedDevices = new Map<string, string>();
 let verifiedLoaded = false;
 
 function readStorage(key: string): string | null {
@@ -43,15 +52,38 @@ function writeStorage(key: string, value: string): void {
   }
 }
 
+function persistVerified(): void {
+  const entries: VerifiedEntry[] = Array.from(verifiedDevices, ([id, name]) => ({ id, name }));
+  writeStorage(VERIFIED_STORAGE_KEY, JSON.stringify(entries));
+}
+
 /** Load the persisted verified-MFi set into the session cache (idempotent). */
 export function initVerifiedMfiSet(): void {
   if (verifiedLoaded) return;
   verifiedLoaded = true;
+
   const raw = readStorage(VERIFIED_STORAGE_KEY);
-  if (!raw) return;
+  if (raw) {
+    try {
+      const entries = JSON.parse(raw) as VerifiedEntry[];
+      for (const entry of entries) {
+        if (typeof entry.id === "string") {
+          verifiedDevices.set(entry.id.toUpperCase(), typeof entry.name === "string" ? entry.name : "");
+        }
+      }
+      return;
+    } catch {
+      // Corrupt storage — fall through to legacy migration
+    }
+  }
+
+  // One-time migration from the legacy ids-only key (@mfi_verified).
+  const legacy = readStorage(LEGACY_VERIFIED_STORAGE_KEY);
+  if (!legacy) return;
   try {
-    const ids = JSON.parse(raw) as string[];
-    for (const id of ids) verifiedIds.add(id.toUpperCase());
+    const ids = JSON.parse(legacy) as string[];
+    for (const id of ids) verifiedDevices.set(id.toUpperCase(), "");
+    persistVerified();
   } catch {
     // Corrupt storage — start empty
   }
@@ -60,19 +92,27 @@ export function initVerifiedMfiSet(): void {
 /** True if this device id was previously confirmed to expose the LEA service. */
 export function isVerifiedMfi(deviceId: string): boolean {
   initVerifiedMfiSet();
-  return verifiedIds.has(deviceId.toUpperCase());
+  return verifiedDevices.has(deviceId.toUpperCase());
+}
+
+/** Last known advertised name of a verified device, or null when unknown. */
+export function verifiedMfiName(deviceId: string): string | null {
+  initVerifiedMfiSet();
+  const name = verifiedDevices.get(deviceId.toUpperCase());
+  return name ? name : null;
 }
 
 /**
  * Record a successful LEA-service confirmation (piggybacked on a real connect
  * flow). Updates the session cache and persists to localStorage.
  */
-export function markVerifiedMfi(deviceId: string): void {
+export function markVerifiedMfi(deviceId: string, deviceName = ""): void {
   initVerifiedMfiSet();
   const id = deviceId.toUpperCase();
-  if (verifiedIds.has(id)) return;
-  verifiedIds.add(id);
-  writeStorage(VERIFIED_STORAGE_KEY, JSON.stringify(Array.from(verifiedIds)));
+  const existing = verifiedDevices.get(id);
+  if (existing != null && (existing || !deviceName)) return;
+  verifiedDevices.set(id, deviceName || existing || "");
+  persistVerified();
 }
 
 // ── Last-set metadata ──
@@ -176,4 +216,28 @@ export function suggestSetSibling(
   }
 
   return fallback;
+}
+
+// ── Scan identity selection ──
+//
+// GN aids broadcast TWO identities (confirmed live): the fitting endpoint
+// named exactly "GN" (never useful for MFi control) and the MFi/phone endpoint
+// "<Name>'s Hearing Aids". The 128-bit LEA service UUID is NOT in either
+// advertisement (MFI_SPEC §4.4 — confirmed absent), so a strict services
+// filter finds nothing and the app falls back to acceptAllDevices. These
+// heuristics rank/filter any device list the app itself renders (the Chrome
+// chooser cannot be filtered beyond services).
+
+/**
+ * True for the GN fitting-broadcast identity (exactly "GN" or "GN …").
+ * These endpoints are for fitting software — deprioritize or hide them.
+ */
+export function isFittingBroadcastName(name: string): boolean {
+  const trimmed = name.trim();
+  return trimmed === "GN" || trimmed.startsWith("GN ");
+}
+
+/** True for names that look like an MFi phone-side identity. */
+export function looksLikeMfiHearingAidName(name: string): boolean {
+  return /hearing aid/i.test(name);
 }
