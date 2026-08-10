@@ -1,0 +1,57 @@
+name: Deploy branch preview to GitHub Pages
+
+on:
+  push:
+    branches: [feature/simple-advanced]
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-app
+      - uses: actions/checkout@v4
+        with:
+          path: branch-app
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: main-app/package-lock.json
+      - name: Build main app (site root)
+        working-directory: main-app
+        run: |
+          npm ci
+          npm run build
+      - name: Build branch app (preview subpath)
+        working-directory: branch-app
+        env:
+          VITE_BASE: /hearing_aid_control/preview/simple-advanced/
+        run: |
+          npm ci
+          npm run build
+      - name: Compose site
+        run: |
+          mkdir -p site/preview/simple-advanced
+          cp -r main-app/dist/* site/ 2>/dev/null || cp -r main-app/build/* site/
+          cp -r branch-app/dist/* site/preview/simple-advanced/ 2>/dev/null || cp -r branch-app/build/* site/preview/simple-advanced/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
+        id: deployment
