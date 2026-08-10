@@ -14,6 +14,8 @@ import { DiagnosticsPanel } from "./ui/DiagnosticsPanel";
 import { ControlPanel } from "./ui/ControlPanel";
 import { PairingBanner } from "./ui/PairingBanner";
 import { SafeModeBanner } from "./ui/SafeModeBanner";
+import { SimpleHome } from "./ui/SimpleHome";
+import { BinauralPrompt } from "./ui/BinauralPrompt";
 import { useAppStore } from "./store/appStore";
 import { DiagnosticsStream } from "./diagnostics/diagnostics";
 import { WebBleTransport } from "./transport/webBleTransport";
@@ -62,12 +64,14 @@ export default function App(): JSX.Element {
   const setBondState = useAppStore((state) => state.setBondState);
   const pushMessage = useAppStore((state) => state.pushMessage);
   const resetSession = useAppStore((state) => state.resetSession);
+  const viewMode = useAppStore((state) => state.viewMode);
+  const setViewMode = useAppStore((state) => state.setViewMode);
 
   const diagnostics = useMemo(() => new DiagnosticsStream(), []);
   const transport = useMemo(() => new WebBleTransport(diagnostics), [diagnostics]);
   const adapterRef = useRef<BrandAdapter | null>(null);
-  const [writeToBoth, setWriteToBoth] = useState<boolean>(false);
   const [addingEar, setAddingEar] = useState<boolean>(false);
+  const [pairPromptDismissed, setPairPromptDismissed] = useState<boolean>(false);
   const [deviceName, setDeviceName] = useState<string>("");
   const [grantedDevices, setGrantedDevices] = useState<readonly BluetoothDevice[]>([]);
 
@@ -99,6 +103,26 @@ export default function App(): JSX.Element {
       })
       .catch(() => undefined);
   }, []);
+
+  // The binaural prompt is per-session: re-offer it on the next connection.
+  useEffect(() => {
+    if (!connected) setPairPromptDismissed(false);
+  }, [connected]);
+
+  // Poll while a binaural set is active so a dropped ear is noticed and
+  // reported plainly (notifications only update the adapter cache).
+  useEffect(() => {
+    if (!connected || driverState.setActive !== true) return;
+    const adapter = adapterRef.current;
+    if (!adapter) return;
+    const timer = window.setInterval(() => {
+      adapter
+        .refreshState()
+        .then(setDriverState)
+        .catch(() => undefined);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [connected, driverState.setActive, setDriverState]);
 
   /** Shared post-connection setup for both the chooser and getDevices paths. */
   const finishConnect = async (deviceInfo: DeviceInfoSummary): Promise<void> => {
@@ -234,19 +258,12 @@ export default function App(): JSX.Element {
       await adapter.addSecondaryEar();
       const refreshed = await adapter.refreshState();
       setDriverState(refreshed);
+      // writeToBoth defaults to true in the adapter — writes go to both aids.
     } catch (error) {
       pushMessage(`set-error: ${(error as Error).message}`);
     } finally {
       setAddingEar(false);
     }
-  };
-
-  const toggleWriteToBoth = (value: boolean): void => {
-    const adapter = adapterRef.current;
-    if (adapter instanceof MfiAdapter) {
-      adapter.writeToBoth = value;
-    }
-    setWriteToBoth(value);
   };
 
   const mfiPanel =
@@ -255,31 +272,49 @@ export default function App(): JSX.Element {
           isSet: driverState.setActive === true,
           primarySide: driverState.primarySide,
           addingEar,
-          writeToBoth,
           programs: driverState.programs ?? [],
           streamVolume: driverState.streamVolume ?? 50,
-          onAddOtherEar: addOtherEar,
-          onSetWriteToBoth: toggleWriteToBoth
+          onAddOtherEar: addOtherEar
         }
       : undefined;
 
+  const setActive = driverState.setActive === true;
+  const secondaryDropped = brand === "mfi" && setActive && driverState.secondaryConnected === false;
+  const droppedSide = driverState.primarySide === "left" ? "right" : "left";
+  const droppedEarText = driverState.primarySide
+    ? `${droppedSide === "left" ? "Left" : "Right"} hearing aid disconnected — still controlling ${
+        droppedSide === "left" ? "right" : "left"
+      }`
+    : "One hearing aid disconnected — still controlling the other";
+  const showBinauralPrompt =
+    connected && brand === "mfi" && !setActive && !pairPromptDismissed && bondState !== "needs-pairing";
+
   return (
-    <main>
-      <h1>Hearing Aid Control (Web MVP)</h1>
-      <p>Brand: {brand === "mfi" ? "MFi (Universal)" : brand}</p>
-      <p>Session: {connecting ? "connecting" : connected ? "ready" : "idle"}</p>
-      <p>Connection: {connected ? "connected" : "disconnected"}</p>
-      <div className="actions">
-        <button onClick={connect} disabled={connected || connecting}>
-          {connecting ? "Connecting..." : "Connect"}
-        </button>
-        <button onClick={disconnect} disabled={!connected && !connecting}>
-          Disconnect
+    <main className={viewMode === "simple" ? "simple-view" : undefined}>
+      <div className="view-toggle-bar">
+        <button onClick={() => setViewMode(viewMode === "simple" ? "advanced" : "simple")}>
+          {viewMode === "simple" ? "More options" : "Fewer options"}
         </button>
       </div>
+      <h1>Hearing Aid Control</h1>
+      {viewMode === "advanced" ? (
+        <>
+          <p>Brand: {brand === "mfi" ? "MFi (Universal)" : brand}</p>
+          <p>Session: {connecting ? "connecting" : connected ? "ready" : "idle"}</p>
+          <p>Connection: {connected ? "connected" : "disconnected"}</p>
+          <div className="actions">
+            <button onClick={connect} disabled={connected || connecting}>
+              {connecting ? "Connecting..." : "Connect"}
+            </button>
+            <button onClick={disconnect} disabled={!connected && !connecting}>
+              Disconnect
+            </button>
+          </div>
+        </>
+      ) : null}
       {!connected && grantedDevices.length > 0 ? (
         <section className="previous-devices">
-          <h3>Previously connected</h3>
+          {viewMode === "advanced" ? <h3>Previously connected</h3> : null}
           {grantedDevices.map((device) => (
             <button key={device.id} onClick={() => void reconnectGranted(device)} disabled={connecting}>
               {device.name ?? "Unknown device"}
@@ -291,45 +326,72 @@ export default function App(): JSX.Element {
       {connected && bondState === "needs-pairing" ? (
         <PairingBanner deviceName={deviceName || "your hearing aids"} onRetry={retryPairing} />
       ) : null}
-      <ControlPanel
-        brand={brand}
-        connected={connected}
-        capabilities={capabilities}
-        onExecute={runOperation}
-        onRefresh={refreshState}
-        mfi={mfiPanel}
-      />
-      <SafeModeBanner brand={brand} capabilities={capabilities} />
-      {brand === "mfi" && connected ? (
-        <section>
-          <h3>Battery</h3>
-          <p>
-            {mfiPanel?.isSet
-              ? `${driverState.primarySide === "left" ? "Left" : "Right"} (primary): ${
-                  driverState.batteryPercent ?? "?"
-                }% — ${driverState.primarySide === "left" ? "Right" : "Left"} (secondary): ${
-                  driverState.batteryPercentSecondary ?? "?"
-                }%`
-              : `Battery: ${driverState.batteryPercent ?? "?"}%`}
-          </p>
-        </section>
+      {secondaryDropped ? (
+        <div className="dropped-ear-notice" role="alert">
+          {droppedEarText}
+        </div>
       ) : null}
-      <section>
-        <h3>Current State</h3>
-        <pre>{JSON.stringify(driverState, null, 2)}</pre>
-      </section>
-      <section>
-        <h3>Compatibility Snapshot</h3>
-        <p>Services discovered: {discoveredServices.length}</p>
-        <pre>{JSON.stringify(discoveredServices, null, 2)}</pre>
-        <p>Characteristics discovered: {discoveredCharacteristics.length}</p>
-        <pre>{JSON.stringify(discoveredCharacteristics, null, 2)}</pre>
-      </section>
-      <section>
-        <h3>Capability Matrix</h3>
-        <CapabilityTable capabilities={capabilities} />
-      </section>
-      <DiagnosticsPanel messages={messages} />
+      {showBinauralPrompt ? (
+        <BinauralPrompt
+          side={driverState.primarySide}
+          busy={addingEar}
+          onConnectOther={() => void addOtherEar()}
+          onSkip={() => setPairPromptDismissed(true)}
+        />
+      ) : null}
+      {viewMode === "simple" ? (
+        <SimpleHome
+          connected={connected}
+          connecting={connecting}
+          driverState={driverState}
+          capabilities={capabilities}
+          onConnect={connect}
+          onDisconnect={disconnect}
+          onExecute={runOperation}
+        />
+      ) : (
+        <>
+          <ControlPanel
+            brand={brand}
+            connected={connected}
+            capabilities={capabilities}
+            onExecute={runOperation}
+            onRefresh={refreshState}
+            mfi={mfiPanel}
+          />
+          <SafeModeBanner brand={brand} capabilities={capabilities} />
+          {brand === "mfi" && connected ? (
+            <section>
+              <h3>Battery</h3>
+              <p>
+                {mfiPanel?.isSet
+                  ? `${driverState.primarySide === "left" ? "Left" : "Right"} (primary): ${
+                      driverState.batteryPercent ?? "?"
+                    }% — ${driverState.primarySide === "left" ? "Right" : "Left"} (secondary): ${
+                      driverState.batteryPercentSecondary ?? "?"
+                    }%`
+                  : `Battery: ${driverState.batteryPercent ?? "?"}%`}
+              </p>
+            </section>
+          ) : null}
+          <section>
+            <h3>Current State</h3>
+            <pre>{JSON.stringify(driverState, null, 2)}</pre>
+          </section>
+          <section>
+            <h3>Compatibility Snapshot</h3>
+            <p>Services discovered: {discoveredServices.length}</p>
+            <pre>{JSON.stringify(discoveredServices, null, 2)}</pre>
+            <p>Characteristics discovered: {discoveredCharacteristics.length}</p>
+            <pre>{JSON.stringify(discoveredCharacteristics, null, 2)}</pre>
+          </section>
+          <section>
+            <h3>Capability Matrix</h3>
+            <CapabilityTable capabilities={capabilities} />
+          </section>
+          <DiagnosticsPanel messages={messages} />
+        </>
+      )}
     </main>
   );
 }

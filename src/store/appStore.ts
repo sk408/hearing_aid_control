@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { CapabilityDecision, Brand } from "../domain/model";
 import type { DriverState } from "../adapters/types";
 import type { BondState } from "../brand/bond";
+import { loadViewMode, saveViewMode, type ViewMode } from "./viewMode";
 
 export interface AppState {
   readonly brand: Brand;
@@ -14,6 +15,8 @@ export interface AppState {
   readonly discoveredCharacteristics: readonly string[];
   /** Inferred BLE bond state of the active link (MFi adapter; 'unknown' otherwise). */
   readonly bondState: BondState;
+  /** Simple (default, wearer-friendly) vs advanced (full control surface) view. */
+  readonly viewMode: ViewMode;
   setBrand: (brand: Brand) => void;
   setConnected: (connected: boolean) => void;
   setConnecting: (connecting: boolean) => void;
@@ -21,6 +24,7 @@ export interface AppState {
   setDriverState: (driverState: DriverState) => void;
   setDiscovery: (services: readonly string[], characteristics: readonly string[]) => void;
   setBondState: (bondState: BondState) => void;
+  setViewMode: (viewMode: ViewMode) => void;
   pushMessage: (message: string) => void;
   resetSession: () => void;
 }
@@ -35,6 +39,7 @@ export const useAppStore = create<AppState>((set) => ({
   discoveredServices: [],
   discoveredCharacteristics: [],
   bondState: "unknown",
+  viewMode: loadViewMode(),
   setBrand: (brand) => set({ brand }),
   setConnected: (connected) => set({ connected }),
   setConnecting: (connecting) => set({ connecting }),
@@ -46,6 +51,10 @@ export const useAppStore = create<AppState>((set) => ({
       discoveredCharacteristics: characteristics
     }),
   setBondState: (bondState) => set({ bondState }),
+  setViewMode: (viewMode) => {
+    saveViewMode(viewMode);
+    set({ viewMode });
+  },
   pushMessage: (message) =>
     set((state) => ({
       messages: [...state.messages, message].slice(-30)

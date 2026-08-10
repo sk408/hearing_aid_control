@@ -13,6 +13,60 @@ GATT dump). RN source of truth: `reference/mfiAdapter.ts`,
 
 ---
 
+## Simple/Advanced views + binaural-first flow (2026-08-10 — feature/simple-advanced)
+
+The app's audience is hearing-aid WEARERS — many elderly, many technically
+illiterate — so the UI is split into two persisted views
+(`src/store/viewMode.ts`, localStorage key `hac_view_mode_v1`), switchable from
+every screen via a plainly-worded "More options" / "Fewer options" toggle:
+
+- **Simple view (DEFAULT for new users)** — `src/ui/SimpleHome.tsx`. Essentials
+  only: giant Louder/Softer buttons (primary volume control, ±5 per tap, not
+  just a slider), big program buttons with the real fitted names and the active
+  program highlighted, battery in plain words ("80% — Good" / "15% — Low,
+  charge soon"), one giant mute toggle when supported. ≥20px body text, ≥64px
+  touch targets. No jargon (no GATT/bond/LEA/attenuation/dB), no streaming
+  volume, no per-ear splits, no diagnostics/logs.
+- **Advanced view** — the previous full UI (per-ear sliders via "Unlink ears",
+  stream volume, capability matrix, compatibility snapshot, diagnostics).
+  Experimental features stay flagged (emulated mute chip).
+
+**Binaural-first connection flow.** After the FIRST aid connects, the app
+immediately shows `src/ui/BinauralPrompt.tsx` — "Connect my other hearing
+aid?" as the expected path (one tap into the existing second-chooser /
+verification flow: grouping heuristics, L+R badges, verified cache), skippable
+via "Just one for now" (per-session dismissal). Side labels come from the
+`8d17ac2f` side characteristic with the advertised-name L/R marker as fallback
+(`splitNameAndSide`); `DriverState.primarySide` is now exposed single-sided
+too, but only when actually detected (new `primarySideKnown` flag).
+
+**Write-both default (overrides the Android branch).** `MfiAdapter.writeToBoth`
+now defaults to **true**: with a set connected, volume/program/mute writes go
+to BOTH aids. Rationale: the RN/Android default (primary-only) assumed
+ear-to-ear sync, which NOT all aids do — on a non-syncing set a primary-only
+write leaves the ears unbalanced, the worst outcome for this audience. On sets
+that DO sync ear-to-ear the duplicated write is harmless (same value
+idempotently written to both). Per-ear control remains via the 'left'/'right'
+ear selector (Advanced view → "Unlink ears"), which routes to the specific aid
+regardless of `writeToBoth`.
+
+**Graceful set degradation.** Writes are per-member fault-tolerant
+(`writeByteToTargets`): a failing set member no longer aborts the write to the
+survivor; the first error is rethrown only when EVERY target failed. A member
+whose link dropped (transport state `disconnected` after bounded reconnect
+retries) is skipped by `writeTargets` and reported via the new
+`DriverState.secondaryConnected`; the app polls `refreshState()` every 5 s
+while a set is active and shows a plain banner ("Right hearing aid
+disconnected — still controlling left").
+
+Tests: `tests/writeBoth.test.ts` (8 — default both-aid routing, per-ear
+routing, writeToBoth=false, graceful survivor writes, dropped-member skip,
+all-targets-fail error, side/battery reporting) and `tests/viewMode.test.ts`
+(4 — simple default, unknown-value fallback, persistence round-trip, store
+wiring). Full suite: 42/42 PASS.
+
+---
+
 ## Live test results (2026-08-10 — ReSound GN aids, desktop Chrome on Windows)
 
 - WORKS: connect (via the `acceptAllDevices` fallback), DIS manufacturer
@@ -108,7 +162,7 @@ Implemented per MFI_SPEC §4.1 minimum viable client:
 | Notifications | Implemented | MicAttenuation, StreamAttenuation, CurrentActiveProgram, BatteryLevel on the primary; Battery/MicAttenuation/CurrentActiveProgram on the secondary |
 | Mute | Implemented — EXPERIMENTAL | Write 0 / restore stored value (fallback 128); flagged "experimental" in the UI |
 | DIS manufacturer name | Implemented | Display only — no brand logic keyed off it |
-| Binaural sets | Implemented (adapted) | One adapter, two GATT connections; `writeToBoth` toggle (default false); per-ear writes via `setVolume(level, 'left'|'right')`; per-ear battery; graceful single-sided fallback |
+| Binaural sets | Implemented (adapted) | One adapter, two GATT connections; writes go to BOTH aids by default (writeToBoth=true since feature/simple-advanced — see that section); per-ear writes via `setVolume(level, 'left'|'right')`; per-ear battery; graceful single-sided fallback incl. mid-session drops |
 
 ## Deviations from the RN branch
 
@@ -182,12 +236,14 @@ Implemented per MFI_SPEC §4.1 minimum viable client:
 
 ## Verified
 
-- `npm install && npm run build` (tsc --noEmit + vite build): PASS (re-verified 2026-08-10).
-- `npm test`: 30/30 PASS (2026-08-10), including `tests/mfiSets.test.ts` (13:
-  grouping, verified-cache v1 + legacy migration, scan-identity heuristics)
-  and `tests/mfiAdapter.test.ts` (10: volume map, mic/stream writes, bitmask
+- `npm install && npm run build` (tsc --noEmit + vite build): PASS (re-verified 2026-08-10, feature/simple-advanced).
+- `npm test`: 42/42 PASS (2026-08-10, feature/simple-advanced), including `tests/mfiSets.test.ts` (13:
+  grouping, verified-cache v1 + legacy migration, scan-identity heuristics),
+  `tests/mfiAdapter.test.ts` (10: volume map, mic/stream writes, bitmask
   program validation, mute write-0/restore, refreshState shape, bond-state
-  detection / retryBondedSetup recovery / auth-write guidance).
+  detection / retryBondedSetup recovery / auth-write guidance),
+  `tests/writeBoth.test.ts` (8: binaural write routing + graceful degradation)
+  and `tests/viewMode.test.ts` (4: simple/advanced preference).
 - 4 brand adapters still compile and are reachable for non-LEA devices.
 
 ## Live-test checklist (mirrors MFI_BRANCH_NOTES untested items)
@@ -218,9 +274,12 @@ expose the LEA service):
 9. "Add other ear": second chooser connects the sibling; L+R badge appears
    with correct primary side (name marker vs `8d17ac2f` read); per-ear
    battery shows for both aids.
-10. Ear-to-ear sync assumption: volume/program written to the primary only —
-    confirm the secondary follows (its notifications in Diagnostics). If
-    not, enable "Write to both ears".
+10. Ear-to-ear sync assumption: writes now go to BOTH aids by default —
+    confirm both ears change (on syncing sets the duplicated write is
+    harmless; on non-syncing sets this is the fix). Verify per-ear writes
+    (Advanced → "Unlink ears") still route to the correct physical aid, and
+    that powering off one aid mid-session produces the plain dropped-ear
+    banner while the survivor stays controllable.
 11. Per-ear (unlinked) volume writes route to the correct physical aid.
 12. Single-sided fallback: "Add other ear" cancelled / sibling powered off →
     primary keeps working; page reload → getDevices() auto-merges the set

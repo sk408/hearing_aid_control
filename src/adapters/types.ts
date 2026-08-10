@@ -21,8 +21,16 @@ export interface DriverState {
   readonly streamVolume?: number;
   /** True when the adapter drives a two-aid binaural set (MFi adapter only). */
   readonly setActive?: boolean;
-  /** Ear side of the primary aid in set mode (MFi adapter only). */
+  /**
+   * Ear side of the primary aid, when detected (8d17ac2f side characteristic
+   * or an L/R marker in the advertised name). Undefined when unknown.
+   */
   readonly primarySide?: "left" | "right";
+  /**
+   * False when a connected binaural set member has dropped its link (the
+   * adapter keeps controlling the surviving aid). Undefined single-sided.
+   */
+  readonly secondaryConnected?: boolean;
   /** Fitted program names read via the LEA name selector (MFi adapter only). */
   readonly programs?: readonly ProgramInfo[];
 }

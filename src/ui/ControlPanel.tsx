@@ -7,11 +7,9 @@ interface MfiPanelProps {
   readonly isSet: boolean;
   readonly primarySide?: "left" | "right";
   readonly addingEar: boolean;
-  readonly writeToBoth: boolean;
   readonly programs: readonly ProgramInfo[];
   readonly streamVolume: number;
   readonly onAddOtherEar: () => Promise<void>;
-  readonly onSetWriteToBoth: (value: boolean) => void;
 }
 
 interface ControlPanelProps {
@@ -60,8 +58,14 @@ export function ControlPanel({ brand, connected, capabilities, onExecute, onRefr
   const [streamVolume, setStreamVolume] = useState<number>(mfi?.streamVolume ?? 50);
   const [program, setProgram] = useState<number>(0);
   const [muted, setMuted] = useState<boolean>(false);
+  const [unlinkEars, setUnlinkEars] = useState<boolean>(false);
   const [earTarget, setEarTarget] = useState<"both" | "left" | "right">("both");
   const [busyOperation, setBusyOperation] = useState<Operation | null>(null);
+
+  // Linked ears (default): every write targets 'both' — the adapter writes
+  // BOTH aids (writeToBoth defaults to true; see MfiAdapter). Unlinking
+  // reveals the per-ear selector for independent Left/Right control.
+  const effectiveEarTarget = unlinkEars ? earTarget : "both";
 
   const volumeCap = useMemo(() => findCapability(capabilities, "SetVolume"), [capabilities]);
   const streamVolumeCap = useMemo(() => findCapability(capabilities, "SetStreamVolume"), [capabilities]);
@@ -130,20 +134,21 @@ export function ControlPanel({ brand, connected, capabilities, onExecute, onRefr
           <button onClick={() => void mfi.onAddOtherEar()} disabled={!connected || mfi.isSet || mfi.addingEar}>
             {mfi.addingEar ? "Adding..." : "Add other ear"}
           </button>
-          <label htmlFor="writeToBoth">Write to both ears</label>
+          <label htmlFor="unlinkEars">Unlink ears (per-ear control)</label>
           <input
-            id="writeToBoth"
+            id="unlinkEars"
             type="checkbox"
-            checked={mfi.writeToBoth}
-            onChange={(event) => mfi.onSetWriteToBoth(event.target.checked)}
+            checked={unlinkEars}
+            onChange={(event) => setUnlinkEars(event.target.checked)}
             disabled={!connected || !mfi.isSet}
           />
         </div>
       ) : null}
       {mfi ? (
         <p className="control-note">
-          Binaural aids normally sync ear-to-ear, so writes go to the primary aid only. Enable &quot;Write to both
-          ears&quot; for sets that do not sync between ears.
+          Writes go to BOTH hearing aids by default, so the ears stay balanced even on sets that do not sync
+          ear-to-ear (on sets that do sync, the duplicated write is harmless). &quot;Unlink ears&quot; enables
+          independent Left/Right volume control.
         </p>
       ) : null}
 
@@ -162,19 +167,23 @@ export function ControlPanel({ brand, connected, capabilities, onExecute, onRefr
               disabled={!connected}
             />
             <span>{volume}</span>
-            <label htmlFor="earTarget">Ear</label>
-            <select
-              id="earTarget"
-              value={earTarget}
-              onChange={(event) => setEarTarget(event.target.value as "both" | "left" | "right")}
-              disabled={!connected}
-            >
-              <option value="both">Both</option>
-              <option value="left">Left</option>
-              <option value="right">Right</option>
-            </select>
+            {mfi?.isSet && unlinkEars ? (
+              <>
+                <label htmlFor="earTarget">Ear</label>
+                <select
+                  id="earTarget"
+                  value={earTarget}
+                  onChange={(event) => setEarTarget(event.target.value as "both" | "left" | "right")}
+                  disabled={!connected}
+                >
+                  <option value="both">Both</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                </select>
+              </>
+            ) : null}
             <button
-              onClick={() => run("SetVolume", { level: volume, isMuted: muted, ear: earTarget })}
+              onClick={() => run("SetVolume", { level: volume, isMuted: muted, ear: effectiveEarTarget })}
               disabled={!connected || !canExecute(volumeCap) || busyOperation !== null}
               title={volumeCap?.reason}
             >
@@ -190,13 +199,13 @@ export function ControlPanel({ brand, connected, capabilities, onExecute, onRefr
         <div className="control-card">
           <span className="quick-label">Quick volume</span>
           <button
-            onClick={() => run("SetVolume", { level: Math.max(0, volume - 5), isMuted: muted, ear: earTarget })}
+            onClick={() => run("SetVolume", { level: Math.max(0, volume - 5), isMuted: muted, ear: effectiveEarTarget })}
             disabled={!connected || busyOperation !== null}
           >
             -5
           </button>
           <button
-            onClick={() => run("SetVolume", { level: Math.min(100, volume + 5), isMuted: muted, ear: earTarget })}
+            onClick={() => run("SetVolume", { level: Math.min(100, volume + 5), isMuted: muted, ear: effectiveEarTarget })}
             disabled={!connected || busyOperation !== null}
           >
             +5

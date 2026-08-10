@@ -185,3 +185,152 @@ td {
   color: #4ade80;
   font-size: 0.85rem;
 }
+
+/* ── View toggle (always visible, plain words) ── */
+
+.view-toggle-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.simple-view .view-toggle-bar button {
+  min-height: 64px;
+  font-size: 20px;
+  padding: 10px 18px;
+}
+
+.simple-view .previous-devices button {
+  min-height: 64px;
+  font-size: 20px;
+  padding: 12px 18px;
+}
+
+/* ── Simple view: elderly-friendly defaults ── */
+
+.simple-view {
+  font-size: 20px;
+  line-height: 1.5;
+}
+
+.simple-view main,
+main.simple-view {
+  max-width: 640px;
+}
+
+.giant-button {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  margin: 0 0 14px 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 2px solid #475569;
+  background: #1e293b;
+  color: #f8fafc;
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.giant-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.simple-home .simple-connected-line {
+  font-size: 22px;
+  font-weight: 600;
+  color: #bbf7d0;
+}
+
+.simple-battery {
+  margin: 0 0 18px 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #0b1222;
+  border: 1px solid #334155;
+}
+
+.simple-battery p {
+  margin: 4px 0;
+  font-size: 21px;
+}
+
+.simple-volume {
+  display: flex;
+  gap: 14px;
+}
+
+.simple-volume .volume-button {
+  min-height: 96px;
+  font-size: 26px;
+  flex: 1;
+}
+
+.simple-programs {
+  margin-top: 8px;
+}
+
+.simple-program-current {
+  font-size: 21px;
+}
+
+.program-button.program-active {
+  border-color: #4ade80;
+  background: #064e3b;
+}
+
+.mute-button.mute-active {
+  border-color: #fbbf24;
+  background: #713f12;
+}
+
+.simple-disconnect {
+  margin-top: 10px;
+  min-height: 64px;
+  padding: 12px 20px;
+  font-size: 20px;
+}
+
+/* ── Binaural prompt + dropped-ear notice ── */
+
+.binaural-prompt {
+  margin: 12px 0;
+  border: 2px solid #1d4ed8;
+  border-radius: 12px;
+  background: #0b1a3a;
+  padding: 14px 16px;
+}
+
+.binaural-prompt strong {
+  color: #bfdbfe;
+  font-size: 1.05em;
+}
+
+.binaural-prompt p {
+  color: #dbeafe;
+  margin: 8px 0 12px 0;
+}
+
+.binaural-prompt-actions button {
+  min-height: 64px;
+  padding: 12px 18px;
+  font-size: 1em;
+  margin-right: 10px;
+}
+
+.simple-view .binaural-prompt-actions button {
+  font-size: 20px;
+}
+
+.dropped-ear-notice {
+  margin: 12px 0;
+  border: 2px solid #92400e;
+  border-radius: 12px;
+  background: #1c1305;
+  padding: 12px 16px;
+  color: #fde68a;
+  font-size: 1.05em;
+  font-weight: 600;
+}

@@ -35,17 +35,17 @@
  *    explicit "add other ear" requestDevice chooser (addSecondaryEar) or
  *    automatically from navigator.bluetooth.getDevices() when a previously
  *    granted device matches the set heuristics (see src/brand/mfiSets.ts).
- *  - Binaural aids sync volume/program between ears over their own
- *    ear-to-ear link, so by default writes go to the PRIMARY aid only and
- *    the secondary is observed via notifications (see `writeToBoth`).
+ *  - Writes default to BOTH aids (`writeToBoth = true`): ear-to-ear sync is
+ *    not universal, and on aids that DO sync the duplicated write is
+ *    harmless. Per-ear writes are still possible via the ear selector.
  *  - Battery is read from BOTH aids. Single-sided operation degrades
- *    gracefully: if the secondary fails to connect, the adapter continues
- *    with the primary alone.
+ *    gracefully: if the secondary fails to connect — or drops mid-session —
+ *    the adapter keeps controlling the surviving aid.
  *
  * This file intentionally imports NO brand-core code.
  */
 import { isAuthError, pairingGuidance, type BondState } from "../brand/bond";
-import { LEA_SERVICE_UUID, markVerifiedMfi, isVerifiedMfi, loadLastSet, saveLastSet, suggestSetSibling } from "../brand/mfiSets";
+import { LEA_SERVICE_UUID, markVerifiedMfi, isVerifiedMfi, loadLastSet, saveLastSet, splitNameAndSide, suggestSetSibling } from "../brand/mfiSets";
 import type { DeviceProfile } from "../capability/capabilityEngine";
 import type { Operation } from "../domain/model";
 import type { Transport } from "../transport/types";
@@ -170,13 +170,18 @@ export class MfiAdapter extends BaseAdapter {
   /** Ear side of the primary aid (set mode). Default right. */
   public primarySide: Ear = "right";
 
+  /** True once the primary's side was actually detected (side char or name marker). */
+  private primarySideKnown = false;
+
   /**
-   * Binaural write policy. Binaural aids sync volume/program over their own
-   * ear-to-ear link, so the default (false) writes to the PRIMARY aid only
-   * and relies on notifications from both aids to observe the result.
-   * Set true for sets that do NOT sync between ears (writes go to both).
+   * Binaural write policy. The default (true) writes to BOTH aids: not all
+   * sets sync volume/program ear-to-ear, and a wearer must never end up with
+   * one ear changed and the other not. On sets that DO sync over their own
+   * ear-to-ear link the duplicated write is harmless. Per-ear writes via the
+   * 'left'/'right' ear selector always route to that specific aid regardless
+   * of this flag; set false to restore primary-only writes.
    */
-  public writeToBoth = false;
+  public writeToBoth = true;
 
   // Cached state (seeded from reads, kept current by notifications).
   // In set mode these track the SET state — binaural aids sync between ears,
@@ -267,15 +272,44 @@ export class MfiAdapter extends BaseAdapter {
    * Resolve which aids receive a write for the given ear selector.
    *  - Single-sided: always the one connected aid.
    *  - ear 'left'/'right' (unlinked UI sliders): that specific aid.
-   *  - 'both': primary only by default (ear-to-ear link syncs the set), or
-   *    both when writeToBoth is enabled for non-syncing sets.
+   *  - 'both': BOTH aids by default (writeToBoth = true — see the field
+   *    comment), or the primary only when writeToBoth is disabled.
+   * A set member whose link has dropped is skipped so the survivor keeps
+   * working.
    */
   private writeTargets(ear: "left" | "right" | "both" | undefined): Transport[] {
     if (!this.secondary) return [this.primary];
     if (ear === "left" || ear === "right") {
       return [this.primarySide === ear ? this.primary : this.secondary.transport];
     }
-    return this.writeToBoth ? [this.primary, this.secondary.transport] : [this.primary];
+    const targets = this.writeToBoth ? [this.primary, this.secondary.transport] : [this.primary];
+    return targets.filter((target) => target.getConnectionState() !== "disconnected");
+  }
+
+  /**
+   * Write one byte to every resolved target. A failing set member does not
+   * abort the write to the others — the surviving aid must stay controllable
+   * when its sibling drops. The first error is rethrown only when EVERY
+   * target failed.
+   */
+  private async writeByteToTargets(targets: readonly Transport[], charUuid: string, value: number): Promise<void> {
+    if (targets.length === 0) {
+      throw new Error("MfiAdapter: no connected hearing aid available for this write");
+    }
+    let firstError: unknown = null;
+    let succeeded = 0;
+    for (const target of targets) {
+      try {
+        await this.writeByteTo(target, charUuid, value);
+        succeeded += 1;
+      } catch (error) {
+        firstError = firstError ?? error;
+        this.log(`Write to one set member failed (${charUuid}): ${(error as Error).message}`);
+      }
+    }
+    if (succeeded === 0 && firstError) {
+      throw firstError;
+    }
   }
 
   /**
@@ -343,9 +377,21 @@ export class MfiAdapter extends BaseAdapter {
       this.log("DIS manufacturer name not available");
     }
 
-    // Mono side (used for set primary/secondary assignment)
+    // Mono side (used for set primary/secondary assignment and L/R labels).
+    // Prefer the 8d17ac2f side characteristic; fall back to the advertised
+    // name's L/R marker when the read is unavailable.
     const side = await this.readSide(this.primary);
-    if (side) this.primarySide = side;
+    if (side) {
+      this.primarySide = side;
+      this.primarySideKnown = true;
+    } else {
+      const nameSide = splitNameAndSide(this.primaryName).side;
+      if (nameSide) {
+        this.primarySide = nameSide;
+        this.primarySideKnown = true;
+        this.log(`Side characteristic unreadable — using name marker: ${nameSide}`);
+      }
+    }
 
     let unsecuredOk = side != null;
     try {
@@ -621,6 +667,7 @@ export class MfiAdapter extends BaseAdapter {
     // Side reconciliation: prefer the primary's own side read; otherwise
     // infer primary as the opposite of the secondary's side.
     const secondarySide = await this.readSide(transport);
+    if (secondarySide) this.primarySideKnown = true;
     if (secondarySide && this.primarySide === secondarySide) {
       this.primarySide = secondarySide === "left" ? "right" : "left";
     }
@@ -679,13 +726,11 @@ export class MfiAdapter extends BaseAdapter {
    * full 1–255 range (the 13-step RC table quantizes only the physical RC).
    *
    * In set mode: 'left'/'right' writes that specific aid; 'both' (default)
-   * writes the primary only unless writeToBoth is enabled.
+   * writes BOTH aids (writeToBoth default) so non-syncing sets stay balanced.
    */
   public async setVolume(level: number, ear?: "left" | "right" | "both"): Promise<void> {
     const att = volumeToMfi(level);
-    for (const target of this.writeTargets(ear)) {
-      await this.writeByteTo(target, LEA_MIC_ATTENUATION, att);
-    }
+    await this.writeByteToTargets(this.writeTargets(ear), LEA_MIC_ATTENUATION, att);
     this.cachedVolume = Math.max(0, Math.min(100, Math.round(level)));
   }
 
@@ -695,9 +740,7 @@ export class MfiAdapter extends BaseAdapter {
    */
   public async setStreamingVolume(level: number): Promise<void> {
     const att = volumeToMfi(level);
-    for (const target of this.writeTargets("both")) {
-      await this.writeByteTo(target, LEA_STREAM_ATTENUATION, att);
-    }
+    await this.writeByteToTargets(this.writeTargets("both"), LEA_STREAM_ATTENUATION, att);
     this.cachedStreamVolume = Math.max(0, Math.min(100, Math.round(level)));
   }
 
@@ -716,14 +759,10 @@ export class MfiAdapter extends BaseAdapter {
       } catch {
         this.preMuteMicAtt = volumeToMfi(this.cachedVolume);
       }
-      for (const target of targets) {
-        await this.writeByteTo(target, LEA_MIC_ATTENUATION, 0);
-      }
+      await this.writeByteToTargets(targets, LEA_MIC_ATTENUATION, 0);
     } else {
       const restore = this.preMuteMicAtt ?? 128;
-      for (const target of targets) {
-        await this.writeByteTo(target, LEA_MIC_ATTENUATION, restore);
-      }
+      await this.writeByteToTargets(targets, LEA_MIC_ATTENUATION, restore);
       this.preMuteMicAtt = null;
     }
     this.cachedMuted = muted;
@@ -747,9 +786,7 @@ export class MfiAdapter extends BaseAdapter {
         `MfiAdapter: program ${index} is not fitted (mask 0x${(this.availableProgramsMask ?? 0).toString(16)})`
       );
     }
-    for (const target of this.writeTargets("both")) {
-      await this.writeByteTo(target, LEA_CURRENT_ACTIVE_PROGRAM, index);
-    }
+    await this.writeByteToTargets(this.writeTargets("both"), LEA_CURRENT_ACTIVE_PROGRAM, index);
     this.cachedProgram = index;
   }
 
@@ -891,7 +928,10 @@ export class MfiAdapter extends BaseAdapter {
       batteryPercentSecondary: secondaryBattery >= 0 ? secondaryBattery : undefined,
       streamVolume: this.cachedStreamVolume,
       setActive: this.isSet,
-      primarySide: this.isSet ? this.primarySide : undefined,
+      primarySide: this.primarySideKnown ? this.primarySide : undefined,
+      secondaryConnected: this.secondary
+        ? this.secondary.transport.getConnectionState() === "connected"
+        : undefined,
       programs: this.cachedPrograms,
       deviceInfo: {
         id: this.primaryId,
