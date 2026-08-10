@@ -16,6 +16,19 @@ export interface TransportNotification {
   readonly value: Uint8Array;
 }
 
+/** One discovered GATT characteristic with its property flags (explorer). */
+export interface GattCharacteristicInfo {
+  readonly uuid: string;
+  /** Property names present, e.g. "read", "write", "writeWithoutResponse", "notify", "indicate". */
+  readonly properties: readonly string[];
+}
+
+/** One discovered GATT service with its characteristics (explorer). */
+export interface GattServiceInfo {
+  readonly uuid: string;
+  readonly characteristics: readonly GattCharacteristicInfo[];
+}
+
 export interface Transport {
   connect(
     filters: readonly BluetoothLEScanFilter[],
@@ -26,6 +39,12 @@ export interface Transport {
     services: string[];
     characteristics: string[];
   }>;
+  /**
+   * Full GATT tree with per-characteristic property flags — the Advanced
+   * view explorer (and EQ candidate discovery) rides this. Only services
+   * permitted by the connection's optionalServices are visible.
+   */
+  explore(): Promise<readonly GattServiceInfo[]>;
   read(characteristicUuid: string): Promise<Uint8Array>;
   write(characteristicUuid: string, value: Uint8Array): Promise<void>;
   subscribe(

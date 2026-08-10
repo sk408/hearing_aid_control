@@ -12,6 +12,9 @@ import { resolveCapabilities, type DeviceProfile } from "./capability/capability
 import { CapabilityTable } from "./ui/CapabilityTable";
 import { DiagnosticsPanel } from "./ui/DiagnosticsPanel";
 import { ControlPanel } from "./ui/ControlPanel";
+import { GattExplorer } from "./ui/GattExplorer";
+import { EqPanel } from "./ui/EqPanel";
+import { findEqCandidate } from "./domain/eqBands";
 import { PairingBanner } from "./ui/PairingBanner";
 import { SafeModeBanner } from "./ui/SafeModeBanner";
 import { SimpleHome } from "./ui/SimpleHome";
@@ -20,7 +23,7 @@ import { useAppStore } from "./store/appStore";
 import { DiagnosticsStream } from "./diagnostics/diagnostics";
 import { WebBleTransport } from "./transport/webBleTransport";
 import type { BrandAdapter } from "./adapters/types";
-import type { DeviceInfoSummary } from "./transport/types";
+import type { DeviceInfoSummary, GattServiceInfo } from "./transport/types";
 import type { Operation } from "./domain/model";
 
 const OPTIONAL_SERVICES: BluetoothServiceUUID[] = [
@@ -44,6 +47,12 @@ const DEVICE_FILTERS: BluetoothLEScanFilter[] = [
   { services: ["9a04f079-9840-4286-ab92-e65be0885f95"] },
   { services: ["0000180a-0000-1000-8000-00805f9b34fb"] }
 ];
+
+/** Advanced battery line suffix: " (raw 10, ×10 scale)" when the raw byte is known. */
+function batteryRawSuffix(raw: number | undefined, scale: number | undefined): string {
+  if (raw == null || scale == null) return "";
+  return ` (raw ${raw}, ×${scale} scale)`;
+}
 
 export default function App(): JSX.Element {
   const brand = useAppStore((state) => state.brand);
@@ -74,6 +83,8 @@ export default function App(): JSX.Element {
   const [pairPromptDismissed, setPairPromptDismissed] = useState<boolean>(false);
   const [deviceName, setDeviceName] = useState<string>("");
   const [grantedDevices, setGrantedDevices] = useState<readonly BluetoothDevice[]>([]);
+  // Full GATT tree of the primary aid (Advanced-view explorer + EQ discovery).
+  const [gattTree, setGattTree] = useState<readonly GattServiceInfo[]>([]);
 
   useEffect(() => {
     const unsubscribe = diagnostics.onEvent((event) => {
@@ -127,6 +138,9 @@ export default function App(): JSX.Element {
   /** Shared post-connection setup for both the chooser and getDevices paths. */
   const finishConnect = async (deviceInfo: DeviceInfoSummary): Promise<void> => {
     const discovery = await transport.discover();
+    // Explorer tree (properties included) — failure here must not break connect.
+    const tree = await transport.explore().catch(() => [] as const);
+    setGattTree(tree);
     const detectedBrand = detectBrandFromServices(discovery.services);
     const profile: DeviceProfile = {
       brand: detectedBrand,
@@ -159,6 +173,7 @@ export default function App(): JSX.Element {
     pushMessage(`connect-error: ${(error as Error).message}`);
     await transport.disconnect();
     adapterRef.current = null;
+    setGattTree([]);
     resetSession();
   };
 
@@ -211,6 +226,7 @@ export default function App(): JSX.Element {
     } else {
       await transport.disconnect();
     }
+    setGattTree([]);
     resetSession();
   };
 
@@ -243,6 +259,24 @@ export default function App(): JSX.Element {
       setDriverState(refreshed);
     } catch (error) {
       pushMessage(`refresh-error: ${(error as Error).message}`);
+    }
+  };
+
+  // ── GATT explorer + EQ discovery (Advanced view) ──
+
+  const explorerRead = async (characteristicUuid: string): Promise<Uint8Array> => {
+    const value = await transport.read(characteristicUuid);
+    return value;
+  };
+
+  /** EQ match over the discovered tree — sliders show only when usable. */
+  const eqMatch = useMemo(() => findEqCandidate(gattTree), [gattTree]);
+
+  const eqWrite = async (characteristicUuid: string, payload: Uint8Array): Promise<void> => {
+    try {
+      await transport.write(characteristicUuid, payload);
+    } catch (error) {
+      pushMessage(`eq-error: ${(error as Error).message}`);
     }
   };
 
@@ -367,10 +401,20 @@ export default function App(): JSX.Element {
                 {mfiPanel?.isSet
                   ? `${driverState.primarySide === "left" ? "Left" : "Right"} (primary): ${
                       driverState.batteryPercent ?? "?"
-                    }% — ${driverState.primarySide === "left" ? "Right" : "Left"} (secondary): ${
-                      driverState.batteryPercentSecondary ?? "?"
-                    }%`
-                  : `Battery: ${driverState.batteryPercent ?? "?"}%`}
+                    }%${batteryRawSuffix(driverState.batteryRaw, driverState.batteryScale)} — ${
+                      driverState.primarySide === "left" ? "Right" : "Left"
+                    } (secondary): ${driverState.batteryPercentSecondary ?? "?"}%${batteryRawSuffix(
+                      driverState.batteryRawSecondary,
+                      driverState.batteryScaleSecondary
+                    )}`
+                  : `Battery: ${driverState.batteryPercent ?? "?"}%${batteryRawSuffix(
+                      driverState.batteryRaw,
+                      driverState.batteryScale
+                    )}`}
+              </p>
+              <p className="control-note">
+                Raw byte + learned scale shown so decile-vs-percent firmware reporting is verifiable on hardware
+                (scale heuristic: src/brand/batteryScale.ts).
               </p>
             </section>
           ) : null}
@@ -385,6 +429,17 @@ export default function App(): JSX.Element {
             <p>Characteristics discovered: {discoveredCharacteristics.length}</p>
             <pre>{JSON.stringify(discoveredCharacteristics, null, 2)}</pre>
           </section>
+          <EqPanel match={eqMatch} connected={connected} onWrite={eqWrite} />
+          {connected && eqMatch && !eqMatch.usable ? (
+            <section>
+              <h3>Tone (Bass / Treble)</h3>
+              <p className="control-note">
+                EQ candidate discovered: {eqMatch.candidate.label} ({eqMatch.candidate.uuid}) —{" "}
+                {eqMatch.candidate.notes} Sliders stay hidden until a safe write format is known.
+              </p>
+            </section>
+          ) : null}
+          <GattExplorer tree={gattTree} connected={connected} onRead={explorerRead} />
           <section>
             <h3>Capability Matrix</h3>
             <CapabilityTable capabilities={capabilities} />

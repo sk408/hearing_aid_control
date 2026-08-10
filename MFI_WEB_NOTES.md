@@ -13,7 +13,73 @@ GATT dump). RN source of truth: `reference/mfiAdapter.ts`,
 
 ---
 
-## Simple/Advanced views + binaural-first flow (2026-08-10 — feature/simple-advanced)
+## Live feedback round 2 (2026-08-10 — feature/simple-advanced)
+
+### Simple-view volume slider
+
+The Louder/Softer buttons (±5) stay, and a large fat-thumb slider is now
+ADDITIVE below them (`src/ui/SimpleHome.tsx`, `.simple-volume-slider` in
+`src/styles.css`): ≥48px track, 64px thumb, fully synced with the buttons
+and with notification-driven `driverState.volume` updates (both ride the
+same local volume state). Drags update the thumb immediately but the aid
+receives ONE debounced write (250 ms, flushed on release) — not a GATT
+write per pixel of finger movement.
+
+### Battery scale fix — VERIFIED AGAINST HARDWARE
+
+The user's ReSound aid reported raw byte **10** on the LEA battery
+characteristic (`24e1dff3`) at a physical ~full charge (≈100%). MFI_SPEC
+claims 0–100; this firmware evidently reports **deciles (0–10)**.
+
+`src/brand/batteryScale.ts` implements probe-aware scaling: every raw byte
+(seeded reads, notifications, `getBattery`, both set members) is recorded
+per device id; if the max raw byte EVER seen for a device is ≤10 it is
+treated as decile scale ×10, otherwise direct percent ×1. The max is
+persisted in localStorage (`hac_battery_scale_v1`), so the learned scale
+survives reloads and never reclassifies a percent device as decile (the
+max only grows). Scaled percent is clamped at 100.
+
+- **Advanced view**: the battery line now shows the RAW byte and learned
+  scale alongside the scaled percent — `Battery: 100% (raw 10, ×10 scale)` —
+  so scaling decisions are verifiable on hardware (`batteryRaw` /
+  `batteryScale` / `batteryRawSecondary` / `batteryScaleSecondary` on
+  `DriverState`).
+- **Simple view**: the friendly wording thresholds ("Good"/"OK"/"Low,
+  charge soon") apply to the SCALED percent, unchanged.
+
+### GATT explorer + EQ (Bass/Treble) discovery
+
+The standardized MFi/LEA surface has NO tone control. The only known
+candidates are GN proprietary gain characteristics (RE registry):
+`400FC36C-…` (GNAllGainData) and `9062FD9D-…` (GNGainData, R/W/N, ~12 KB
+blob) — but their object schema, packet segmentation, and auth
+prerequisites are unknown (encrypted GN fitting path this app avoids).
+
+- **GATT explorer** (Advanced view, `src/ui/GattExplorer.tsx` +
+  `Transport.explore()`): enumerates every service/characteristic with
+  UUIDs and property flags (read/write/writeWithoutResponse/notify/…);
+  values are read ON DEMAND per characteristic (reading everything up
+  front would spam the link and could trigger pairing prompts on secured
+  characteristics). This is the discovery tool for any tone/EQ surface.
+- **Pluggable EQ mapping** (`src/domain/eqBands.ts`): Bass/Treble sliders
+  (`src/ui/EqPanel.tsx`) are wired to an encoder registry and render ONLY
+  when a discovered characteristic matches a known candidate that is
+  writable AND has a registered payload encoder. No encoder is registered
+  for the GN blobs (format unknown — writing blind into a 12 KB fitting
+  blob could corrupt the aid's fitting), so the sliders stay HIDDEN even
+  if those UUIDs are discovered; a discovered-but-unusable candidate is
+  reported as a plain note instead. Never show dead controls. When a
+  future EQ characteristic with a KNOWN simple layout is found, adding one
+  `encode` entry makes the sliders appear automatically.
+
+Tests: `tests/batteryScale.test.ts` (7 — decile detection, max-seen
+tracking, reclassification, clamping, persistence round-trip, corrupted
+storage), `tests/batteryRawDisplay.test.ts` (3 — decile/percent
+DriverState raw+scale reporting, per-device persistence across adapter
+instances), `tests/eqBands.test.ts` (6 — candidate matching, case
+insensitivity, writable detection, usable gating). Full suite: 58/58 PASS.
+
+---
 
 The app's audience is hearing-aid WEARERS — many elderly, many technically
 illiterate — so the UI is split into two persisted views

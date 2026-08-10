@@ -1,7 +1,29 @@
 import type { DiagnosticsStream } from "../diagnostics/diagnostics";
-import { TransportError, type ConnectionState, type DeviceInfoSummary, type Transport, type TransportNotification } from "./types";
+import {
+  TransportError,
+  type ConnectionState,
+  type DeviceInfoSummary,
+  type GattServiceInfo,
+  type Transport,
+  type TransportNotification
+} from "./types";
 
 const RECONNECT_DELAYS_MS = [300, 700, 1400];
+
+/** Names of the set BluetoothCharacteristicProperties flags, in stable order. */
+function characteristicPropertyNames(properties: BluetoothCharacteristicProperties): string[] {
+  const names: string[] = [];
+  if (properties.broadcast) names.push("broadcast");
+  if (properties.read) names.push("read");
+  if (properties.writeWithoutResponse) names.push("writeWithoutResponse");
+  if (properties.write) names.push("write");
+  if (properties.notify) names.push("notify");
+  if (properties.indicate) names.push("indicate");
+  if (properties.authenticatedSignedWrites) names.push("authenticatedSignedWrites");
+  if (properties.reliableWrite) names.push("reliableWrite");
+  if (properties.writableAuxiliaries) names.push("writableAuxiliaries");
+  return names;
+}
 
 export class WebBleTransport implements Transport {
   private device: BluetoothDevice | null = null;
@@ -140,6 +162,27 @@ export class WebBleTransport implements Transport {
       services: serviceUuids,
       characteristics: characteristicUuids
     };
+  }
+
+  public async explore(): Promise<readonly GattServiceInfo[]> {
+    const services = await this.requireServer().getPrimaryServices();
+    const tree: GattServiceInfo[] = [];
+
+    for (const service of services) {
+      const chars = await service.getCharacteristics();
+      tree.push({
+        uuid: service.uuid,
+        characteristics: chars.map((item: BluetoothRemoteGATTCharacteristic) => {
+          this.characteristicCache.set(item.uuid.toLowerCase(), item);
+          return {
+            uuid: item.uuid,
+            properties: characteristicPropertyNames(item.properties)
+          };
+        })
+      });
+    }
+
+    return tree;
   }
 
   public async read(characteristicUuid: string): Promise<Uint8Array> {

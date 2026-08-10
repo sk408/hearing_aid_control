@@ -12,10 +12,21 @@ export interface DriverState {
   readonly activeProgram?: number;
   readonly batteryPercent?: number;
   /**
+   * Raw battery byte and applied scale for the primary aid (MFi adapter).
+   * Some firmware reports deciles (0–10) instead of the spec's 0–100 — the
+   * scale heuristic lives in src/brand/batteryScale.ts. Exposed so the
+   * Advanced view can show "100% (raw 10, ×10 scale)" for verification.
+   */
+  readonly batteryRaw?: number;
+  readonly batteryScale?: number;
+  /**
    * Battery of the secondary aid in a binaural set (MFi adapter only).
    * Present when one adapter manages two GATT connections.
    */
   readonly batteryPercentSecondary?: number;
+  /** Raw battery byte / applied scale for the secondary aid (set mode). */
+  readonly batteryRawSecondary?: number;
+  readonly batteryScaleSecondary?: number;
   readonly deviceInfo?: DeviceInfoSummary;
   /** Streaming-path volume 0–100 (MFi adapter only). */
   readonly streamVolume?: number;

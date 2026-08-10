@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CapabilityDecision, Operation } from "../domain/model";
 import type { DriverState } from "../adapters/types";
 
@@ -14,6 +14,9 @@ interface SimpleHomeProps {
 
 /** Volume change per tap of the big Louder/Softer buttons (0–100 scale). */
 const VOLUME_STEP = 5;
+
+/** Debounce before a slider drag commits a GATT write (finger may still move). */
+const SLIDER_WRITE_DEBOUNCE_MS = 250;
 
 function isSupported(capabilities: readonly CapabilityDecision[], operation: Operation): boolean {
   return capabilities.some((item) => item.operation === operation && item.status === "supported");
@@ -35,9 +38,10 @@ function sideWord(side: "left" | "right" | undefined): string {
 /**
  * Simple view — the default for new users. The audience is hearing-aid
  * wearers, many elderly and non-technical, so this screen is the essentials
- * only, in plain words: giant Louder/Softer buttons, big program buttons,
- * plain battery status, one giant mute toggle. No jargon, no sliders, no
- * diagnostics. Everything else lives in the Advanced view.
+ * only, in plain words: giant Louder/Softer buttons plus a big fat-thumb
+ * volume slider (additive — both stay in sync), big program buttons, plain
+ * battery status, one giant mute toggle. No jargon, no diagnostics.
+ * Everything else lives in the Advanced view.
  */
 export function SimpleHome({
   connected,
@@ -50,6 +54,11 @@ export function SimpleHome({
 }: SimpleHomeProps): JSX.Element {
   const [volume, setVolume] = useState<number>(driverState.volume ?? 50);
   const [busy, setBusy] = useState<boolean>(false);
+
+  // Pending slider write: drags fire many change events, but the aid should
+  // receive ONE write once the finger pauses/lifts (debounced), not a flood.
+  const sliderWriteTimer = useRef<number | null>(null);
+  const pendingSliderVolume = useRef<number | null>(null);
 
   // Track the aid's actual volume (seeded on connect, refreshed after writes).
   useEffect(() => {
@@ -84,6 +93,34 @@ export function SimpleHome({
     const next = Math.max(0, Math.min(100, volume + delta));
     setVolume(next);
     await run("SetVolume", { level: next, isMuted: muted, ear: "both" });
+  };
+
+  const commitSliderVolume = (): void => {
+    const pending = pendingSliderVolume.current;
+    pendingSliderVolume.current = null;
+    if (pending == null) return;
+    void run("SetVolume", { level: pending, isMuted: muted, ear: "both" });
+  };
+
+  /** Drag: update the thumb immediately, schedule the write (debounced). */
+  const onSliderChange = (value: number): void => {
+    const clamped = Math.max(0, Math.min(100, value));
+    setVolume(clamped);
+    pendingSliderVolume.current = clamped;
+    if (sliderWriteTimer.current != null) window.clearTimeout(sliderWriteTimer.current);
+    sliderWriteTimer.current = window.setTimeout(() => {
+      sliderWriteTimer.current = null;
+      commitSliderVolume();
+    }, SLIDER_WRITE_DEBOUNCE_MS);
+  };
+
+  /** Finger/stylus lifted: flush any pending write right away. */
+  const onSliderRelease = (): void => {
+    if (sliderWriteTimer.current != null) {
+      window.clearTimeout(sliderWriteTimer.current);
+      sliderWriteTimer.current = null;
+    }
+    commitSliderVolume();
   };
 
   const programs = driverState.programs ?? [];
@@ -126,6 +163,26 @@ export function SimpleHome({
           >
             Softer
           </button>
+        </div>
+      ) : null}
+
+      {canVolume ? (
+        <div className="simple-volume-slider">
+          <label htmlFor="simpleVolumeSlider">Volume: {volume}</label>
+          <input
+            id="simpleVolumeSlider"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={volume}
+            aria-label="Volume"
+            onChange={(event) => onSliderChange(Number(event.target.value))}
+            onPointerUp={onSliderRelease}
+            onKeyUp={onSliderRelease}
+            onBlur={onSliderRelease}
+            disabled={busy}
+          />
         </div>
       ) : null}
 

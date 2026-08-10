@@ -45,6 +45,7 @@
  * This file intentionally imports NO brand-core code.
  */
 import { isAuthError, pairingGuidance, type BondState } from "../brand/bond";
+import { recordBatteryRaw, type BatteryReading } from "../brand/batteryScale";
 import { LEA_SERVICE_UUID, markVerifiedMfi, isVerifiedMfi, loadLastSet, saveLastSet, splitNameAndSide, suggestSetSibling } from "../brand/mfiSets";
 import type { DeviceProfile } from "../capability/capabilityEngine";
 import type { Operation } from "../domain/model";
@@ -65,7 +66,7 @@ const LEA_STREAM_ATTENUATION = "6ac46200-24ea-46d8-a136-81133c65840a";
 const LEA_AVAILABLE_PROGRAMS = "21ff4275-c41d-4486-a0e3-dc11138bcde6";
 /** Active program index — R/W/N, 1 byte */
 const LEA_CURRENT_ACTIVE_PROGRAM = "a391c6f1-20bb-495a-abbf-2017098fbc61";
-/** Battery percent — R/N, 1 byte, 0–100 */
+/** Battery level — R/N, 1 byte. Spec says 0–100, but verified ReSound firmware reports deciles (0–10) — scaled per device in src/brand/batteryScale.ts */
 const LEA_BATTERY_LEVEL = "24e1dff3-ae90-41bf-bfbd-2cf8df42bf87";
 /** Mono side — R, 1 byte, 0=left / 1=right */
 const LEA_LEFT_RIGHT = "8d17ac2f-1d54-4742-a49a-ef4b20784eb3";
@@ -152,7 +153,7 @@ interface MemberLink {
   transport: Transport;
   id: string;
   name: string;
-  battery: number | null;
+  battery: BatteryReading | null;
 }
 
 // ── Adapter ──
@@ -190,7 +191,7 @@ export class MfiAdapter extends BaseAdapter {
   private cachedStreamVolume = 50;
   private cachedMuted = false;
   private cachedProgram = 0;
-  private cachedBattery: number | null = null;
+  private cachedBattery: BatteryReading | null = null;
   private cachedPrograms: readonly ProgramInfo[] = [];
   private availableProgramsMask: number | null = null;
   private manufacturerName: string | null = null;
@@ -395,7 +396,9 @@ export class MfiAdapter extends BaseAdapter {
 
     let unsecuredOk = side != null;
     try {
-      this.cachedBattery = await this.readByte(LEA_BATTERY_LEVEL);
+      // Raw byte is fed through the per-device scale heuristic (decile
+      // firmware reports 0–10 instead of the spec's 0–100 — batteryScale.ts).
+      this.cachedBattery = recordBatteryRaw(this.primaryId, await this.readByte(LEA_BATTERY_LEVEL));
       unsecuredOk = true;
     } catch {
       this.log("Initial battery read failed");
@@ -502,8 +505,8 @@ export class MfiAdapter extends BaseAdapter {
   private subscribePrimaryNotifications(): void {
     // Unsecured — always armed.
     void this.trySubscribe(this.primary, LEA_BATTERY_LEVEL, (value) => {
-      this.cachedBattery = value[0];
-      this.log(`Battery notify (primary): ${this.cachedBattery}%`);
+      this.cachedBattery = recordBatteryRaw(this.primaryId, value[0]);
+      this.log(`Battery notify (primary): raw ${this.cachedBattery.raw} → ${this.cachedBattery.percent}% (×${this.cachedBattery.scale})`);
     });
 
     if (this.bondState === "bonded") {
@@ -673,7 +676,7 @@ export class MfiAdapter extends BaseAdapter {
     }
 
     try {
-      link.battery = await this.readByteFrom(transport, LEA_BATTERY_LEVEL);
+      link.battery = recordBatteryRaw(id, await this.readByteFrom(transport, LEA_BATTERY_LEVEL));
     } catch {
       this.log("Secondary initial battery read failed");
     }
@@ -683,8 +686,8 @@ export class MfiAdapter extends BaseAdapter {
     // so secondary notifications confirm the primary's writes took effect
     // across both ears). Secured subscriptions follow the bond state.
     void this.trySubscribe(transport, LEA_BATTERY_LEVEL, (value) => {
-      link.battery = value[0];
-      this.log(`Battery notify (secondary): ${value[0]}%`);
+      link.battery = recordBatteryRaw(id, value[0]);
+      this.log(`Battery notify (secondary): raw ${value[0]} → ${link.battery.percent}% (×${link.battery.scale})`);
     });
     if (this.bondState === "bonded") {
       void this.trySubscribe(transport, LEA_MIC_ATTENUATION, (value) => {
@@ -815,25 +818,30 @@ export class MfiAdapter extends BaseAdapter {
     return programs;
   }
 
-  /** Read LEABatteryLevel (0–100) from the primary aid. Returns -1 on failure. */
+  /**
+   * Read LEABatteryLevel from the primary aid. Returns the SCALED percent
+   * (raw byte × per-device scale — decile firmware reports 0–10); -1 on
+   * failure. The raw byte and scale are kept on cachedBattery for
+   * refreshState()/DriverState.
+   */
   public async getBattery(): Promise<number> {
     try {
-      this.cachedBattery = await this.readByte(LEA_BATTERY_LEVEL);
-      return this.cachedBattery;
+      this.cachedBattery = recordBatteryRaw(this.primaryId, await this.readByte(LEA_BATTERY_LEVEL));
+      return this.cachedBattery.percent;
     } catch {
-      return this.cachedBattery ?? -1;
+      return this.cachedBattery?.percent ?? -1;
     }
   }
 
-  /** Read LEABatteryLevel from the secondary aid (set mode). -1 on failure. */
+  /** Read LEABatteryLevel from the secondary aid (set mode). Scaled percent; -1 on failure. */
   public async getBatterySecondary(): Promise<number> {
     const link = this.secondary;
     if (!link) return -1;
     try {
-      link.battery = await this.readByteFrom(link.transport, LEA_BATTERY_LEVEL);
-      return link.battery;
+      link.battery = recordBatteryRaw(link.id, await this.readByteFrom(link.transport, LEA_BATTERY_LEVEL));
+      return link.battery.percent;
     } catch {
-      return link.battery ?? -1;
+      return link.battery?.percent ?? -1;
     }
   }
 
@@ -925,7 +933,11 @@ export class MfiAdapter extends BaseAdapter {
       muted: this.cachedMuted,
       activeProgram,
       batteryPercent: batteryPercent >= 0 ? batteryPercent : undefined,
+      batteryRaw: this.cachedBattery?.raw,
+      batteryScale: this.cachedBattery?.scale,
       batteryPercentSecondary: secondaryBattery >= 0 ? secondaryBattery : undefined,
+      batteryRawSecondary: this.secondary?.battery?.raw,
+      batteryScaleSecondary: this.secondary?.battery?.scale,
       streamVolume: this.cachedStreamVolume,
       setActive: this.isSet,
       primarySide: this.primarySideKnown ? this.primarySide : undefined,

@@ -1,4 +1,4 @@
-import type { Transport, ConnectionState, DeviceInfoSummary, TransportNotification } from "../src/transport/types";
+import type { Transport, ConnectionState, DeviceInfoSummary, GattServiceInfo, TransportNotification } from "../src/transport/types";
 
 export class MockTransport implements Transport {
   private state: ConnectionState = "idle";
@@ -23,6 +23,10 @@ export class MockTransport implements Transport {
 
   public async discover(): Promise<{ services: string[]; characteristics: string[] }> {
     return { services: [], characteristics: [] };
+  }
+
+  public async explore(): Promise<readonly GattServiceInfo[]> {
+    return [];
   }
 
   public async read(characteristicUuid: string): Promise<Uint8Array> {
